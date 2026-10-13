@@ -88,6 +88,14 @@ public enum ToolCatalog {
                               input: "Mystery blob", placeholder: "paste anything", multiline: true) { input, _ in
             Identify.run(input)
         })
+        tools.append(ToolSpec("rsa", "RSA Toolkit", "Factor n, recover d, decrypt c — with weak-key detection", icon: "lock.rectangle.stack", .ctf,
+                              input: "RSA parameters", placeholder: "n=3233\ne=17\nc=2790", multiline: true) { input, _ in
+            RSATool.run(input)
+        })
+        tools.append(ToolSpec("substitution", "Substitution Solver", "Auto-break monoalphabetic substitution (bigram hill-climb)", icon: "character.book.closed", .ctf,
+                              input: "Ciphertext", placeholder: "paste 100+ characters of substituted text", multiline: true) { input, _ in
+            SubstitutionSolver.run(input)
+        })
         tools.append(ToolSpec("numbers", "Base Converter", "Decimal ⇄ hex ⇄ octal ⇄ binary ⇄ ASCII", icon: "number.square", .ctf,
                               input: "Number or text", placeholder: "0x41  ·  65  ·  hello") { input, _ in
             NumberConverter.run(input)
