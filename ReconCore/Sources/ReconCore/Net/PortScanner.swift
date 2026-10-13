@@ -136,7 +136,7 @@ public final class PortScanner: @unchecked Sendable {
         guard getrlimit(RLIMIT_NOFILE, &lim) == 0 else { return }
         let want: rlim_t = 4096
         if lim.rlim_cur < want {
-            lim.rlim_cur = min(want, lim.rlim_max == RLIM_INFINITY ? want : lim.rlim_max)
+            lim.rlim_cur = min(want, lim.rlim_max)   // rlim_max may be "infinity" (huge), so min() is enough
             _ = setrlimit(RLIMIT_NOFILE, &lim)
         }
         #endif
