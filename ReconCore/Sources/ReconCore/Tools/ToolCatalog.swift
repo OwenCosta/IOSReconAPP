@@ -1,10 +1,11 @@
 import Foundation
 
 public enum ToolCategory: String, CaseIterable, Sendable, Identifiable {
-    case dns = "DNS", osint = "OSINT", web = "Web", network = "Network", utility = "Utilities"
+    case ctf = "CTF", dns = "DNS", osint = "OSINT", web = "Web", network = "Network", utility = "Utilities"
     public var id: String { rawValue }
     public var icon: String {
         switch self {
+        case .ctf: return "flag.checkered"
         case .dns: return "point.3.connected.trianglepath.dotted"
         case .osint: return "eye"
         case .web: return "globe"
@@ -56,6 +57,28 @@ public enum ToolCatalog {
 
     public static var all: [ToolSpec] {
         var tools: [ToolSpec] = []
+
+        // MARK: CTF
+        tools.append(ToolSpec("magic", "Magic Decoder", "Auto-solve layered Base64/32, hex, binary, URL, ROT", icon: "wand.and.stars", .ctf,
+                              input: "Encoded text", placeholder: "paste the blob", multiline: true) { input, _ in
+            MagicDecoder.run(input)
+        })
+        tools.append(ToolSpec("flag-hunt", "Flag Extractor", "Scan any text for flag{…} / CTF{…} patterns", icon: "flag.fill", .ctf,
+                              input: "Text / blob", placeholder: "paste output, source, dump…", multiline: true) { input, _ in
+            FlagHunter.run(input)
+        })
+        tools.append(ToolSpec("xor-brute", "XOR Brute-force", "Single-byte XOR, all 256 keys, English-ranked", icon: "bolt.horizontal", .ctf,
+                              input: "Hex or text", placeholder: "1c0111001f010100…", multiline: true) { input, _ in
+            XORTools.singleByteBrute(input)
+        })
+        tools.append(ToolSpec("caesar", "Caesar / ROT Breaker", "All 26 shifts + Atbash + ROT47", icon: "arrow.clockwise.circle", .ctf,
+                              input: "Ciphertext", placeholder: "Uryyb jbeyq", multiline: true) { input, _ in
+            ClassicCipher.run(input)
+        })
+        tools.append(ToolSpec("numbers", "Base Converter", "Decimal ⇄ hex ⇄ octal ⇄ binary ⇄ ASCII", icon: "number.square", .ctf,
+                              input: "Number or text", placeholder: "0x41  ·  65  ·  hello") { input, _ in
+            NumberConverter.run(input)
+        })
 
         // MARK: DNS
         tools.append(ToolSpec("dns-records", "DNS Records", "A, AAAA, CNAME, NS, MX, TXT, SOA, CAA over DoH", icon: "list.bullet.rectangle", .dns) { input, _ in
