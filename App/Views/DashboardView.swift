@@ -33,6 +33,7 @@ final class DashboardModel: ObservableObject {
 
 struct DashboardView: View {
     @EnvironmentObject private var store: SessionStore
+    @EnvironmentObject private var notes: NotesStore
     @StateObject private var model = DashboardModel()
 
     var body: some View {
@@ -40,6 +41,7 @@ struct DashboardView: View {
             ScrollView {
                 VStack(spacing: 14) {
                     networkCard
+                    flagCard
                     publicCard
                     capabilityCard
                     if let latest = store.reports.first {
@@ -55,6 +57,9 @@ struct DashboardView: View {
             .screenBackground()
             .navigationTitle("ReconKit")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    NavigationLink { NotesView() } label: { Image(systemName: "flag.fill") }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink { SettingsView() } label: { Image(systemName: "gearshape") }
                 }
@@ -107,6 +112,24 @@ struct DashboardView: View {
             }
         }
         .card()
+    }
+
+    private var flagCard: some View {
+        NavigationLink { NotesView() } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "flag.checkered").font(.title3).foregroundStyle(Theme.accent).frame(width: 26)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Flag Tracker").font(.headline).foregroundStyle(Theme.accent)
+                    Text(notes.notes.isEmpty ? "Track challenges & flags for the competition"
+                                             : "\(notes.solvedCount) solved · \(notes.notes.count) tracked")
+                        .font(.caption).foregroundStyle(Theme.dim)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.dim)
+            }
+            .card()
+        }
+        .buttonStyle(.plain)
     }
 
     private var capabilityCard: some View {

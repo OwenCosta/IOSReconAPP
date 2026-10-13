@@ -166,6 +166,92 @@ enum CTFEncoders {
         return out.isEmpty ? nil : Data(out)
     }
 
+    // MARK: Base45 (RFC 9285)
+    static let b45 = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:")
+    static func base45Decode(_ s: String) -> Data? {
+        let chars = Array(s.trimmed())
+        guard chars.count >= 2 else { return nil }
+        var lookup: [Character: Int] = [:]; for (i, c) in b45.enumerated() { lookup[c] = i }
+        var out: [UInt8] = []
+        var i = 0
+        while i < chars.count {
+            if i + 2 < chars.count {
+                guard let a = lookup[chars[i]], let b = lookup[chars[i+1]], let c = lookup[chars[i+2]] else { return nil }
+                let n = a + b * 45 + c * 45 * 45
+                guard n <= 0xFFFF else { return nil }
+                out.append(UInt8(n / 256)); out.append(UInt8(n % 256)); i += 3
+            } else if i + 1 < chars.count {
+                guard let a = lookup[chars[i]], let b = lookup[chars[i+1]] else { return nil }
+                let n = a + b * 45; guard n <= 0xFF else { return nil }
+                out.append(UInt8(n)); i += 2
+            } else { return nil }
+        }
+        return out.isEmpty ? nil : Data(out)
+    }
+
+    // MARK: Base62
+    static let b62 = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
+    static func base62Decode(_ s: String) -> Data? {
+        let clean = s.trimmed(); guard clean.count >= 2 else { return nil }
+        var lookup: [Character: Int] = [:]; for (i, c) in b62.enumerated() { lookup[c] = i }
+        var bytes: [UInt8] = [0]
+        for ch in clean {
+            guard let v = lookup[ch] else { return nil }
+            var carry = v
+            for i in 0..<bytes.count { carry += Int(bytes[i]) * 62; bytes[i] = UInt8(carry & 0xff); carry >>= 8 }
+            while carry > 0 { bytes.append(UInt8(carry & 0xff)); carry >>= 8 }
+        }
+        for ch in clean { if ch == "0" { bytes.append(0) } else { break } }
+        return Data(bytes.reversed())
+    }
+    static func base62Encode(_ data: [UInt8]) -> String {
+        var digits: [Int] = [0]
+        for b in data {
+            var carry = Int(b)
+            for i in 0..<digits.count { carry += digits[i] << 8; digits[i] = carry % 62; carry /= 62 }
+            while carry > 0 { digits.append(carry % 62); carry /= 62 }
+        }
+        var out = ""
+        for b in data { if b == 0 { out.append(b62[0]) } else { break } }
+        for d in digits.reversed() { out.append(b62[d]) }
+        return out
+    }
+
+    // MARK: basE91
+    static let b91 = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_" + "`" + "{|}~" + "\"")
+    static func base91Decode(_ s: String) -> Data? {
+        var lookup: [Character: Int] = [:]; for (i, c) in b91.enumerated() { lookup[c] = i }
+        var v = -1, b = 0, n = 0
+        var out: [UInt8] = []
+        for ch in s {
+            guard let c = lookup[ch] else { continue }
+            if v < 0 { v = c }
+            else {
+                v += c * 91
+                b |= v << n
+                n += (v & 8191) > 88 ? 13 : 14
+                repeat { out.append(UInt8(b & 255)); b >>= 8; n -= 8 } while n > 7
+                v = -1
+            }
+        }
+        if v >= 0 { out.append(UInt8((b | v << n) & 255)) }
+        return out.isEmpty ? nil : Data(out)
+    }
+    static func base91Encode(_ data: [UInt8]) -> String {
+        var b = 0, n = 0
+        var out = ""
+        for byte in data {
+            b |= Int(byte) << n; n += 8
+            if n > 13 {
+                var v = b & 8191
+                if v > 88 { b >>= 13; n -= 13 } else { v = b & 16383; b >>= 14; n -= 14 }
+                out.append(b91[v % 91]); out.append(b91[v / 91])
+            }
+        }
+        if n > 0 { out.append(b91[b % 91]); if n > 7 || b > 90 { out.append(b91[b / 91]) } }
+        return out
+    }
+
     static let morseMap: [String: Character] = [
         ".-":"A","-...":"B","-.-.":"C","-..":"D",".":"E","..-.":"F","--.":"G","....":"H","..":"I",".---":"J",
         "-.-":"K",".-..":"L","--":"M","-.":"N","---":"O",".--.":"P","--.-":"Q",".-.":"R","...":"S","-":"T",
@@ -203,6 +289,9 @@ public enum MagicDecoder {
         Transform(name: "Binary") { s in CTFEncoders.fromBinary(s).flatMap(printableText) },
         Transform(name: "Decimal bytes") { s in CTFEncoders.fromDecimalBytes(s).flatMap(printableText) },
         Transform(name: "Base58") { s in CTFEncoders.base58Decode(s).flatMap(printableText) },
+        Transform(name: "Base62") { s in CTFEncoders.base62Decode(s).flatMap(printableText) },
+        Transform(name: "Base45") { s in CTFEncoders.base45Decode(s).flatMap(printableText) },
+        Transform(name: "Base91") { s in CTFEncoders.base91Decode(s).flatMap(printableText) },
         Transform(name: "Ascii85") { s in CTFEncoders.ascii85Decode(s).flatMap(printableText) },
         Transform(name: "Morse") { s in CTFEncoders.morseDecode(s) },
         Transform(name: "URL-decode") { s in

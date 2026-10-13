@@ -92,6 +92,10 @@ public enum ToolCatalog {
                               input: "RSA parameters", placeholder: "n=3233\ne=17\nc=2790", multiline: true) { input, _ in
             RSATool.run(input)
         })
+        tools.append(ToolSpec("rsa-multi", "RSA Multi-Key Attacks", "Common-modulus & Håstad broadcast (one key per line)", icon: "lock.rectangle.on.rectangle", .ctf,
+                              input: "Keys (n= e= c= per line)", placeholder: "n=.. e=3 c=..\nn=.. e=3 c=..\nn=.. e=3 c=..", multiline: true) { input, _ in
+            RSATool.runMulti(input)
+        })
         tools.append(ToolSpec("substitution", "Substitution Solver", "Auto-break monoalphabetic substitution (bigram hill-climb)", icon: "character.book.closed", .ctf,
                               input: "Ciphertext", placeholder: "paste 100+ characters of substituted text", multiline: true) { input, _ in
             SubstitutionSolver.run(input)

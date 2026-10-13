@@ -267,4 +267,117 @@ public enum RSATool {
         let printable = str.unicodeScalars.filter { $0.value >= 32 && $0.value < 127 || $0 == "\n" }.count
         return Double(printable) / Double(str.unicodeScalars.count) > 0.8 ? str : nil
     }
+
+    // MARK: Multi-key attacks
+
+    /// Minimal signed big integer for the extended Euclidean algorithm.
+    struct SBig {
+        var mag: BigUInt; var neg: Bool
+        init(_ m: BigUInt, _ n: Bool = false) { mag = m; neg = n && !m.isZero }
+        static let zero = SBig(BigUInt())
+        static func + (a: SBig, b: SBig) -> SBig {
+            if a.neg == b.neg { return SBig(a.mag + b.mag, a.neg) }
+            return a.mag >= b.mag ? SBig(a.mag - b.mag, a.neg) : SBig(b.mag - a.mag, b.neg)
+        }
+        static prefix func - (a: SBig) -> SBig { SBig(a.mag, !a.neg) }
+        static func - (a: SBig, b: SBig) -> SBig { a + (-b) }
+        static func * (a: SBig, b: SBig) -> SBig { SBig(a.mag * b.mag, a.neg != b.neg) }
+    }
+
+    /// Extended Euclid: returns (g, x, y) with x·a + y·b = g.
+    static func egcd(_ a: BigUInt, _ b: BigUInt) -> (BigUInt, SBig, SBig) {
+        var oldR = a, r = b
+        var oldS = SBig(one), s = SBig.zero
+        var oldT = SBig.zero, t = SBig(one)
+        while !r.isZero {
+            let q = oldR / r
+            let qS = SBig(q)
+            (oldR, r) = (r, oldR - q * r)
+            (oldS, s) = (s, oldS - qS * s)
+            (oldT, t) = (t, oldT - qS * t)
+        }
+        return (oldR, oldS, oldT)
+    }
+
+    /// Chinese Remainder Theorem over pairwise-coprime moduli → (residue, product).
+    public static func crt(_ pairs: [(BigUInt, BigUInt)]) -> (BigUInt, BigUInt)? {
+        guard var r = pairs.first?.0, var m = pairs.first?.1 else { return nil }
+        for i in 1..<pairs.count {
+            let (r2, m2) = pairs[i]
+            guard let inv = modInverse(m % m2, m2) else { return nil }
+            let diff = (r2 + m2 - (r % m2)) % m2
+            let t = (diff * inv) % m2
+            r = (r + m * t)
+            m = m * m2
+            r = r % m
+        }
+        return (r, m)
+    }
+
+    /// Same modulus, two coprime exponents: recover m without factoring.
+    public static func commonModulus(n: BigUInt, e1: BigUInt, c1: BigUInt, e2: BigUInt, c2: BigUInt) -> BigUInt? {
+        let (g, a, b) = egcd(e1, e2)
+        guard g == one else { return nil }
+        var base1 = c1 % n, base2 = c2 % n
+        var ea = a, eb = b
+        if ea.neg { guard let inv = modInverse(base1, n) else { return nil }; base1 = inv; ea = SBig(ea.mag) }
+        if eb.neg { guard let inv = modInverse(base2, n) else { return nil }; base2 = inv; eb = SBig(eb.mag) }
+        return (base1.modpow(ea.mag, n) * base2.modpow(eb.mag, n)) % n
+    }
+
+    /// Håstad broadcast: same small e, same m, e different moduli → CRT then e-th root.
+    public static func hastad(_ pairs: [(c: BigUInt, n: BigUInt)], e: Int) -> BigUInt? {
+        guard pairs.count >= e else { return nil }
+        guard let (combined, _) = crt(pairs.map { ($0.c, $0.n) }) else { return nil }
+        let m = iroot(combined, e)
+        return powEq(m, e, combined) ? m : nil
+    }
+
+    static func parseMulti(_ input: String) -> [(n: BigUInt, e: BigUInt?, c: BigUInt?)] {
+        var keys: [(n: BigUInt, e: BigUInt?, c: BigUInt?)] = []
+        for line in input.split(whereSeparator: { $0 == "\n" }) {
+            var d: [String: BigUInt] = [:]
+            for tok in line.split(whereSeparator: { $0 == " " || $0 == "," || $0 == "\t" }) {
+                guard let eq = tok.firstIndex(where: { $0 == "=" || $0 == ":" }) else { continue }
+                let k = String(tok[..<eq]).lowercased()
+                let vs = String(tok[tok.index(after: eq)...])
+                if let v = vs.hasPrefix("0x") ? BigUInt(hex: vs) : (BigUInt(decimal: vs) ?? BigUInt(hex: vs)) { d[k] = v }
+            }
+            if let n = d["n"] { keys.append((n, d["e"], d["c"])) }
+        }
+        return keys
+    }
+
+    public static func runMulti(_ input: String) -> ToolOutput {
+        let keys = parseMulti(input)
+        var out = ToolOutput()
+        var s = ReportSection("RSA multi-key attacks",
+                              note: "One key per line: `n=… e=… c=…`. Detects common-modulus and Håstad broadcast automatically.")
+        guard keys.count >= 2 else {
+            s.add("Usage", "Common modulus: same n, two e/c.  Håstad: same small e, different n, same m.", .low)
+            out.sections = [s]; return out
+        }
+        func reveal(_ m: BigUInt, _ how: String) {
+            s.add(how, "recovered m", .critical)
+            s.add("m", "\(m)")
+            if let t = asciiIfPrintable(m) { s.add("text", t, .high)
+                for f in FlagHunter.find(in: t) { out.findings.append(Finding(.high, "Possible flag: \(f)", how, source: "ctf")) } }
+            out.findings.append(Finding(.critical, "RSA broken: \(how)", source: "rsa"))
+        }
+
+        // Common modulus: identical n across (at least) two keys with different exponents.
+        if let n = keys.first?.n, keys.allSatisfy({ $0.n == n }),
+           keys.count >= 2, let e1 = keys[0].e, let c1 = keys[0].c, let e2 = keys[1].e, let c2 = keys[1].c, e1 != e2 {
+            if let m = commonModulus(n: n, e1: e1, c1: c1, e2: e2, c2: c2) { reveal(m, "Common-modulus attack") ; out.sections = [s]; return out }
+        }
+        // Håstad broadcast: same small e, distinct moduli.
+        if let e = keys.first?.e, let ei = Int(e.description), ei <= 10, keys.allSatisfy({ $0.e == e }),
+           keys.allSatisfy({ $0.c != nil }) {
+            let pairs = keys.map { (c: $0.c!, n: $0.n) }
+            if let m = hastad(pairs, e: ei) { reveal(m, "Håstad broadcast attack (e=\(ei))"); out.sections = [s]; return out }
+        }
+        s.add("Result", "no multi-key attack applied — need same n with two exponents, or same small e across ≥e moduli", .low)
+        out.sections = [s]
+        return out
+    }
 }
