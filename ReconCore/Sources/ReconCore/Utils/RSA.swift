@@ -170,6 +170,16 @@ public enum RSATool {
             }
         }
 
+        // Wiener's attack: recover a small d directly when factoring failed.
+        if v["p"] == nil, v["d"] == nil, let e = v["e"], let n = v["n"], e > one {
+            if let d = wiener(e: e, n: n) {
+                v["d"] = d
+                s.add("Wiener's attack", "small private exponent recovered", .critical)
+                s.add("d (private exponent)", "\(d)", .critical)
+                out.findings.append(Finding(.critical, "RSA private key recovered (Wiener's attack)", "d is small relative to n.", source: "rsa"))
+            }
+        }
+
         // φ(n) and private exponent.
         if let p = v["p"], let q = v["q"] {
             let phi = (p - one) * (q - one)
@@ -208,6 +218,43 @@ public enum RSATool {
         // Shared-factor hint when two moduli are given (n and p where p is another modulus).
         out.sections = [s]
         return out
+    }
+
+    // MARK: Wiener's attack (small private exponent d)
+    /// Recovers d when it is small, via the continued-fraction expansion of e/n. Returns d or nil.
+    public static func wiener(e: BigUInt, n: BigUInt) -> BigUInt? {
+        // Continued fraction of e/n, building convergents k_i/d_i on the fly.
+        var x = e, y = n
+        var hPrev2 = BigUInt(), hPrev1 = one   // numerators  (candidate k)
+        var kPrev2 = one, kPrev1 = BigUInt()   // denominators (candidate d)
+        var steps = 0
+        while !y.isZero && steps < 400 {
+            steps += 1
+            let a = x / y
+            let rem = x - a * y
+            x = y; y = rem
+            let h = a * hPrev1 + hPrev2     // k (numerator of convergent)
+            let kk = a * kPrev1 + kPrev2    // d (denominator of convergent)
+            hPrev2 = hPrev1; hPrev1 = h
+            kPrev2 = kPrev1; kPrev1 = kk
+            let kGuess = h, dGuess = kk
+            if kGuess.isZero { continue }
+            // φ = (e·d − 1) / k  must be a positive integer
+            let edm1 = e * dGuess
+            if edm1 < one { continue }
+            let num = edm1 - one
+            if !(num % kGuess).isZero { continue }
+            let phi = num / kGuess
+            if phi >= n { continue }
+            // s = p + q = n − φ + 1 ; need s² − 4n to be a perfect square
+            let s = n - phi + one
+            let fourN = n.mulSmall(4)
+            if s * s < fourN { continue }
+            let disc = s * s - fourN
+            let r = disc.isqrt()
+            if r * r == disc { return dGuess }   // (p,q) are integers ⇒ d is correct
+        }
+        return nil
     }
 
     static func powEq(_ base: BigUInt, _ k: Int, _ target: BigUInt) -> Bool {

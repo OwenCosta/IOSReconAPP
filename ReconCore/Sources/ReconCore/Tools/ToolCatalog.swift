@@ -96,6 +96,18 @@ public enum ToolCatalog {
                               input: "Ciphertext", placeholder: "paste 100+ characters of substituted text", multiline: true) { input, _ in
             SubstitutionSolver.run(input)
         })
+        tools.append(ToolSpec("xor-repeating", "Repeating-key XOR", "Break multi-byte XOR keys (Hamming + per-column)", icon: "bolt.horizontal.circle", .ctf,
+                              input: "Hex / Base64 ciphertext", placeholder: "1b37373331…  or Base64", multiline: true) { input, _ in
+            XORAnalysis.runRepeatingKey(input)
+        })
+        tools.append(ToolSpec("xor-crib", "XOR Crib Drag", "Two-time-pad: recover messages from key reuse", icon: "arrow.left.arrow.right", .ctf,
+                              input: "Two hex ciphertexts", placeholder: "c1 hex\nc2 hex\n::the flag{ and", multiline: true) { input, _ in
+            XORAnalysis.runCribDrag(input)
+        })
+        tools.append(ToolSpec("hash-crack", "Hash Cracker", "Dictionary + PIN attack on MD5/SHA-1/SHA-256", icon: "lock.trianglebadge.exclamationmark", .ctf,
+                              input: "Hash", placeholder: "5f4dcc3b5aa765d61d8327deb882cf99   (::extra words)", multiline: true) { input, _ in
+            HashCracker.run(input)
+        })
         tools.append(ToolSpec("numbers", "Base Converter", "Decimal ⇄ hex ⇄ octal ⇄ binary ⇄ ASCII", icon: "number.square", .ctf,
                               input: "Number or text", placeholder: "0x41  ·  65  ·  hello") { input, _ in
             NumberConverter.run(input)

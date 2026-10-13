@@ -110,6 +110,12 @@ public enum SubstitutionSolver {
         return out
     }
 
+    /// Unique lowercase words from the corpus — reused as a small English wordlist (e.g. by the hash cracker).
+    public static let corpusWords: [String] = {
+        var seen = Set<String>()
+        return corpus.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init).filter { seen.insert($0).inserted }
+    }()
+
     // ~1.5 KB of common English prose used only to train the bigram model.
     static let corpus = """
     The quick brown fox jumps over the lazy dog. When in the course of human events it becomes necessary for one
