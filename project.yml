@@ -1,0 +1,83 @@
+name: ReconKit
+options:
+  bundleIdPrefix: com.reconkit
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+packages:
+  ReconCore:
+    path: ReconCore
+targets:
+  ReconKit:
+    type: application
+    platform: iOS
+    sources:
+      - App
+    dependencies:
+      - package: ReconCore
+    settings:
+      base:
+        # >>> Change these two for your own Apple ID / team before running on a device <<<
+        PRODUCT_BUNDLE_IDENTIFIER: com.reconkit.app
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        ENABLE_PREVIEWS: YES
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: ReconKit
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSLocalNetworkUsageDescription: ReconKit scans and discovers devices on your local network (host discovery, port scanning, Bonjour).
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        NSBonjourServices:
+        - _adisk._tcp
+        - _afpovertcp._tcp
+        - _airplay._tcp
+        - _companion-link._tcp
+        - _daap._tcp
+        - _device-info._tcp
+        - _ftp._tcp
+        - _googlecast._tcp
+        - _hap._tcp
+        - _homekit._tcp
+        - _http._tcp
+        - _https._tcp
+        - _ipp._tcp
+        - _mediaremotetv._tcp
+        - _nfs._tcp
+        - _printer._tcp
+        - _raop._tcp
+        - _rfb._tcp
+        - _sftp-ssh._tcp
+        - _sleep-proxy._udp
+        - _smb._tcp
+        - _spotify-connect._tcp
+        - _ssh._tcp
+        - _telnet._tcp
+        - _workstation._tcp
+schemes:
+  ReconKit:
+    build:
+      targets:
+        ReconKit: all
+    run:
+      config: Debug
+    test:
+      config: Debug
