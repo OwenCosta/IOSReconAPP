@@ -1,7 +1,7 @@
 import Foundation
 
 public enum ToolCategory: String, CaseIterable, Sendable, Identifiable {
-    case ctf = "CTF", dns = "DNS", osint = "OSINT", web = "Web", network = "Network", utility = "Utilities"
+    case ctf = "CTF", dns = "DNS", osint = "OSINT", web = "Web", network = "Network", utility = "Utilities", generators = "Generators"
     public var id: String { rawValue }
     public var icon: String {
         switch self {
@@ -11,6 +11,7 @@ public enum ToolCategory: String, CaseIterable, Sendable, Identifiable {
         case .web: return "globe"
         case .network: return "network"
         case .utility: return "wrench.and.screwdriver"
+        case .generators: return "dice"
         }
     }
 }
@@ -83,6 +84,10 @@ public enum ToolCatalog {
                               input: "JWT", placeholder: "eyJhbGciOiJIUzI1NiI…   (add ::word1 word2 for custom)", multiline: true) { input, _ in
             JWTCrack.run(input)
         })
+        tools.append(ToolSpec("identify", "What Is This?", "Identify an encoding or cipher and route it to the right tool", icon: "questionmark.circle", .ctf,
+                              input: "Mystery blob", placeholder: "paste anything", multiline: true) { input, _ in
+            Identify.run(input)
+        })
         tools.append(ToolSpec("numbers", "Base Converter", "Decimal ⇄ hex ⇄ octal ⇄ binary ⇄ ASCII", icon: "number.square", .ctf,
                               input: "Number or text", placeholder: "0x41  ·  65  ·  hello") { input, _ in
             NumberConverter.run(input)
@@ -107,12 +112,11 @@ public enum ToolCatalog {
         tools.append(ToolSpec("email-sec", "Email & DNS Security", "SPF, DKIM, DMARC, MTA-STS, CAA, DNSSEC", icon: "envelope.badge.shield.half.filled", .dns) { input, _ in
             await EmailSecurity.analyze(try domain(input))
         })
-        tools.append(ToolSpec("subdomain-brute", "Subdomain Brute-force", "~\(Wordlist.subdomains.count) names, wildcard-aware, via DoH", icon: "text.magnifyingglass", .dns) { input, ctx in
-            let d = try domain(input)
-            let hits = await Subdomains.bruteForce(domain: d, ctx: ctx)
-            var out = ToolOutput(sections: [Subdomains.section(hits, title: "Brute-forced subdomains")])
-            out.findings = await Subdomains.takeoverCandidates(hits)
-            return out
+        tools.append(ToolSpec("subdomains", "Subdomain Finder", "6 passive sources (crt.sh, CertSpotter, OTX, Anubis…) + resolve + takeover", icon: "list.bullet.indent", .dns) { input, ctx in
+            await SubdomainSources.run(try domain(input), brute: false, ctx: ctx)
+        })
+        tools.append(ToolSpec("subdomains-deep", "Subdomain Finder — Deep", "All passive sources plus a DoH brute-force pass (slower)", icon: "text.magnifyingglass", .dns) { input, ctx in
+            await SubdomainSources.run(try domain(input), brute: true, ctx: ctx)
         })
 
         // MARK: OSINT
@@ -284,6 +288,24 @@ public enum ToolCatalog {
         tools.append(ToolSpec("jwt", "JWT Analyzer", "Decode claims, spot alg=none & weak setups", icon: "ticket", .utility,
                               input: "Token", placeholder: "eyJhbGciOi…", multiline: true) { input, _ in
             JWT.analyze(input)
+        })
+        tools.append(ToolSpec("hexdump", "Hex Dump", "xxd-style hex + ASCII view of hex / Base64 / text", icon: "tablecells", .utility,
+                              input: "Data", placeholder: "48 65 6c 6c 6f  ·  or Base64  ·  or text", multiline: true) { input, _ in
+            HexDump.run(input)
+        })
+        tools.append(ToolSpec("timestamp", "Timestamp Converter", "Unix epoch ⇄ ISO-8601 ⇄ UTC, with relative time", icon: "clock", .utility,
+                              input: "Timestamp or date", placeholder: "1700000000  ·  or 'now'", optional: true) { input, _ in
+            TimestampTool.run(input)
+        })
+
+        // MARK: Generators
+        tools.append(ToolSpec("password-gen", "Password Generator", "Strong passwords, passphrases & PIN (on-device CSPRNG)", icon: "key.horizontal.fill", .generators,
+                              input: "", placeholder: "tap Run", optional: true) { _, _ in
+            Generators.run()
+        })
+        tools.append(ToolSpec("token-gen", "Token & UUID Generator", "Random hex / Base64 / Base64URL / UUID v4", icon: "dice.fill", .generators,
+                              input: "", placeholder: "tap Run", optional: true) { _, _ in
+            Generators.tokens()
         })
         return tools
     }

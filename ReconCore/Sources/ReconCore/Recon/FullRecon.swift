@@ -110,16 +110,21 @@ public enum FullRecon {
             stage("Subdomain enumeration", 0.30)
             var names = Set<String>()
             if o.certTransparency {
-                do { names.formUnion(try await CertTransparency.subdomains(of: target, ctx: ctx)) }
-                catch { fail("Certificate Transparency", error) }
+                // Multi-source passive enumeration (crt.sh, CertSpotter, HackerTarget, Anubis, OTX, RapidDNS, Wayback).
+                let (passive, perSource) = await SubdomainSources.enumerate(domain: target, ctx: ctx)
+                names.formUnion(passive)
+                var src = ReportSection("Subdomain sources")
+                for (n, c) in perSource { src.add(n, "\(c) names") }
+                src.add("Total unique", "\(names.count)")
+                absorb(ToolOutput(sections: [src]))
             }
             if o.wayback, let urls = try? await Wayback.urls(for: target, limit: 2000) {
                 for u in urls { if let h = URL(string: u)?.host?.lowercased(), h.hasSuffix(target) { names.insert(h) } }
             }
             var hits: [SubdomainHit] = []
             if !names.isEmpty {
-                cont.yield(.log("Resolving \(min(names.count, 300)) discovered hostnames…"))
-                hits = await Subdomains.resolve(Array(names.sorted().prefix(300)), source: "passive")
+                cont.yield(.log("Resolving \(min(names.count, 800)) discovered hostnames…"))
+                hits = await Subdomains.resolve(Array(names.sorted().prefix(800)), source: "passive")
             }
             if o.subdomainBrute {
                 cont.yield(.log("Brute-forcing \(Wordlist.subdomains.count) common subdomain names…"))

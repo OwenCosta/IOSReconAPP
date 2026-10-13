@@ -30,8 +30,9 @@ struct ScopeView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Spacer()
-            Image(systemName: "scope").font(.system(size: 52)).foregroundStyle(Theme.accent)
-            Text("ReconKit").font(.largeTitle.bold())
+            (Text("RECON").foregroundStyle(Theme.accent) + Text("KIT").foregroundStyle(Theme.fg))
+                .font(.system(size: 40, weight: .bold, design: .monospaced))
+                .tracking(2)
             Text("Network reconnaissance & OSINT toolkit for security professionals.")
                 .foregroundStyle(Theme.dim)
 
