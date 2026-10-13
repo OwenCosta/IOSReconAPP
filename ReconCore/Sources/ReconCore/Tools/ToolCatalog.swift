@@ -112,6 +112,26 @@ public enum ToolCatalog {
                               input: "Hash", placeholder: "5f4dcc3b5aa765d61d8327deb882cf99   (::extra words)", multiline: true) { input, _ in
             HashCracker.run(input)
         })
+        tools.append(ToolSpec("steg-hide", "Hide Text (Zero-Width)", "Hide a secret in invisible zero-width characters", icon: "eye.slash", .ctf,
+                              input: "Secret ::cover text", placeholder: "flag{hidden} ::a normal looking sentence", multiline: true) { input, _ in
+            Steganography.runHide(input)
+        })
+        tools.append(ToolSpec("steg-reveal", "Reveal Hidden Text", "Extract a zero-width hidden message", icon: "eye", .ctf,
+                              input: "Carrier text", placeholder: "paste text that may hide a message", multiline: true) { input, _ in
+            Steganography.runReveal(input)
+        })
+        tools.append(ToolSpec("bacon", "Bacon Cipher", "Encode / decode Bacon (A/B groups of five)", icon: "square.grid.3x1.below.line.grid.1x2", .ctf,
+                              input: "Text or A/B groups", placeholder: "AABAB ABAAA …   or plaintext", multiline: true) { input, _ in
+            BaconCipher.run(input)
+        })
+        tools.append(ToolSpec("a1z26", "A1Z26 Cipher", "Letters ⇄ numbers (A=1 … Z=26)", icon: "textformat.123", .ctf,
+                              input: "Text or numbers", placeholder: "8-5-12-12-15   or hello", multiline: true) { input, _ in
+            A1Z26.run(input)
+        })
+        tools.append(ToolSpec("alphabets", "Alphabet Decoders", "NATO phonetic · Braille · tap code", icon: "character.phonetic", .ctf,
+                              input: "Encoded text", placeholder: "Hotel Echo Lima Lima Oscar  ·  ⠓⠑⠇⠇⠕", multiline: true) { input, _ in
+            AlphabetDecoders.run(input)
+        })
         tools.append(ToolSpec("numbers", "Base Converter", "Decimal ⇄ hex ⇄ octal ⇄ binary ⇄ ASCII", icon: "number.square", .ctf,
                               input: "Number or text", placeholder: "0x41  ·  65  ·  hello") { input, _ in
             NumberConverter.run(input)
@@ -223,6 +243,10 @@ public enum ToolCatalog {
             let out = await SecretScanner.scanWeb(url)
             return out.sections.isEmpty ? ToolOutput(sections: [ReportSection("Web secret scan", items: [ReportItem("Result", "no secrets found in page or linked JS", .info)])]) : out
         })
+        tools.append(ToolSpec("homoglyph", "Homoglyph Detector", "Spot IDN / lookalike-character phishing", icon: "character.magnify", .web,
+                              input: "Domain or text", placeholder: "pаypаl.com", multiline: true) { input, _ in
+            Homoglyph.analyze(input)
+        })
         #if canImport(Network)
         tools.append(ToolSpec("tls", "TLS / Certificate Inspector", "Chain, expiry, SANs, protocol & cipher support", icon: "lock.doc", .web,
                               input: "host[:port]", placeholder: "example.com:443", active: true) { input, _ in
@@ -320,6 +344,10 @@ public enum ToolCatalog {
         tools.append(ToolSpec("timestamp", "Timestamp Converter", "Unix epoch ⇄ ISO-8601 ⇄ UTC, with relative time", icon: "clock", .utility,
                               input: "Timestamp or date", placeholder: "1700000000  ·  or 'now'", optional: true) { input, _ in
             TimestampTool.run(input)
+        })
+        tools.append(ToolSpec("textfun", "Text Transformer", "Leetspeak, reversed, upside-down, full-width, mocking", icon: "textformat.alt", .utility,
+                              input: "Text", placeholder: "Hack the planet", multiline: true) { input, _ in
+            TextFun.run(input)
         })
 
         // MARK: Generators
