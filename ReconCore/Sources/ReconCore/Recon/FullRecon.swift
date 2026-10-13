@@ -151,6 +151,7 @@ public enum FullRecon {
                 absorb(try await WebRecon.analyze(probe.finalURL.absoluteString))
                 if o.contentDiscovery { absorb(await ContentDiscovery.output(base: probe.finalURL, ctx: ctx)) }
                 absorb(try await CORSCheck.run(probe.finalURL.absoluteString))
+                absorb(await SecretScanner.scanWeb(probe.finalURL))
             } catch { fail("Web probe", error) }
         }
         if Task.isCancelled { return }

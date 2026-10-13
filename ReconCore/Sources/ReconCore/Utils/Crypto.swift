@@ -10,7 +10,7 @@ public enum DigestKind: String, CaseIterable, Sendable {
 }
 
 public enum Digests {
-    /// Hex digest, or nil on platforms without CryptoKit (Linux test hosts).
+    /// Hex digest. Uses CryptoKit on Apple platforms and a portable implementation elsewhere.
     public static func hex(_ kind: DigestKind, _ data: Data) -> String? {
         #if canImport(CryptoKit)
         func h<D: Digest>(_ d: D) -> String { d.map { String(format: "%02x", $0) }.joined() }
@@ -22,7 +22,13 @@ public enum Digests {
         case .sha512: return h(SHA512.hash(data: data))
         }
         #else
-        return nil
+        let bytes = [UInt8](data)
+        switch kind {
+        case .md5: return PureHash.hex(PureHash.md5(bytes))
+        case .sha1: return PureHash.hex(PureHash.sha1(bytes))
+        case .sha256: return PureHash.hex(PureHash.sha256(bytes))
+        case .sha384, .sha512: return nil   // 64-bit SHA-2 not implemented in the portable fallback
+        }
         #endif
     }
 

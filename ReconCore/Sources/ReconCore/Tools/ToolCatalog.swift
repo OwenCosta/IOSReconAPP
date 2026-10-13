@@ -75,6 +75,14 @@ public enum ToolCatalog {
                               input: "Ciphertext", placeholder: "Uryyb jbeyq", multiline: true) { input, _ in
             ClassicCipher.run(input)
         })
+        tools.append(ToolSpec("vigenere", "Vigenère Breaker", "Auto-recover the key (IC + χ²) or decrypt with “| KEY”", icon: "key.horizontal", .ctf,
+                              input: "Ciphertext", placeholder: "LXFOPVEFRNHR   or   text | LEMON", multiline: true) { input, _ in
+            Vigenere.run(input)
+        })
+        tools.append(ToolSpec("jwt-crack", "JWT Secret Cracker", "Brute HS256/384/512 signing secret, verifies the signature", icon: "lock.open.rotation", .ctf,
+                              input: "JWT", placeholder: "eyJhbGciOiJIUzI1NiI…   (add ::word1 word2 for custom)", multiline: true) { input, _ in
+            JWTCrack.run(input)
+        })
         tools.append(ToolSpec("numbers", "Base Converter", "Decimal ⇄ hex ⇄ octal ⇄ binary ⇄ ASCII", icon: "number.square", .ctf,
                               input: "Number or text", placeholder: "0x41  ·  65  ·  hello") { input, _ in
             NumberConverter.run(input)
@@ -176,6 +184,16 @@ public enum ToolCatalog {
         tools.append(ToolSpec("cors", "CORS Misconfiguration", "Reflected-origin / credentialed wildcard test", icon: "arrow.triangle.branch", .web,
                               input: "URL", placeholder: "https://api.example.com", active: true) { input, _ in
             try await CORSCheck.run(input)
+        })
+        tools.append(ToolSpec("secrets-text", "Secret Scanner", "Find API keys, tokens & private keys in pasted text", icon: "eye.trianglebadge.exclamationmark", .web,
+                              input: "Source / config / dump", placeholder: "paste code, JS, .env, JSON…", multiline: true) { input, _ in
+            SecretScanner.run(input)
+        })
+        tools.append(ToolSpec("secrets-web", "Web Secret Scanner", "Fetch a page + its JS and scan for leaked keys", icon: "doc.text.magnifyingglass", .web,
+                              input: "URL", placeholder: "https://example.com", active: true) { input, _ in
+            guard let url = WebRecon.normalizeURL(input) else { throw ReconError.invalidInput("bad URL") }
+            let out = await SecretScanner.scanWeb(url)
+            return out.sections.isEmpty ? ToolOutput(sections: [ReportSection("Web secret scan", items: [ReportItem("Result", "no secrets found in page or linked JS", .info)])]) : out
         })
         #if canImport(Network)
         tools.append(ToolSpec("tls", "TLS / Certificate Inspector", "Chain, expiry, SANs, protocol & cipher support", icon: "lock.doc", .web,

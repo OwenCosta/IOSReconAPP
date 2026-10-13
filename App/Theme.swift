@@ -2,22 +2,26 @@ import SwiftUI
 import ReconCore
 
 enum Theme {
-    static let bg = Color(red: 0.035, green: 0.043, blue: 0.059)
-    static let card = Color(red: 0.075, green: 0.09, blue: 0.118)
-    static let stroke = Color.white.opacity(0.08)
-    static let accent = Color(red: 0.24, green: 0.95, blue: 0.56)
-    static let dim = Color.white.opacity(0.55)
+    // Cold-ink base; a single desaturated signal-cyan carries interaction, while the warm
+    // blue→amber→orange→red ramp is reserved strictly for severity (see Severity.color).
+    static let bg = Color(red: 0.039, green: 0.055, blue: 0.078)      // #0A0E14
+    static let card = Color(red: 0.071, green: 0.094, blue: 0.141)    // #121824
+    static let raised = Color(red: 0.102, green: 0.133, blue: 0.192)  // #1A2231
+    static let stroke = Color.white.opacity(0.075)
+    static let accent = Color(red: 0.224, green: 0.761, blue: 0.788)  // #39C2C9 signal cyan
+    static let fg = Color(red: 0.902, green: 0.914, blue: 0.937)      // #E6E9EF cool white
+    static let dim = Color(red: 0.902, green: 0.914, blue: 0.937).opacity(0.55)
     static let mono = Font.system(.footnote, design: .monospaced)
 }
 
 extension Severity {
     var color: Color {
         switch self {
-        case .info: return Color.white.opacity(0.35)
-        case .low: return Color(red: 0.35, green: 0.75, blue: 1.0)
-        case .medium: return Color(red: 1.0, green: 0.78, blue: 0.2)
-        case .high: return Color(red: 1.0, green: 0.45, blue: 0.2)
-        case .critical: return Color(red: 1.0, green: 0.24, blue: 0.3)
+        case .info: return Color(red: 0.902, green: 0.914, blue: 0.937).opacity(0.4)
+        case .low: return Color(red: 0.310, green: 0.663, blue: 0.949)      // #4FA9F2
+        case .medium: return Color(red: 0.941, green: 0.722, blue: 0.278)   // #F0B847
+        case .high: return Color(red: 0.941, green: 0.518, blue: 0.235)     // #F0843C
+        case .critical: return Color(red: 0.941, green: 0.333, blue: 0.420) // #F0556B
         }
     }
     var title: String { rawValue.uppercased() }

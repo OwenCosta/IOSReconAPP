@@ -32,7 +32,9 @@ In Xcode:
 | **OSINT** | RDAP domain/IP, IP intelligence, Certificate Transparency, Wayback Machine, reverse IP, username search (~40 sites), email OSINT (MX, Gravatar, EmailRep, HIBP), GitHub profile + commit-email leak finder, k-anonymity breached-password check, optional Shodan & VirusTotal |
 | **Web** | HTTP security analyzer (A–F grade), redirect chain, 50+ technology fingerprints, exposed-path discovery with soft-404 calibration, CORS misconfiguration test, TLS/certificate inspector (own X.509 parser, SANs, expiry, key strength, TLS 1.0–1.3 probing) |
 | **Network** | ICMP ping, traceroute, subnet calculator, public IP |
-| **Utilities** | Hash identifier (hashcat modes), hash generator, smart decoder, JWT analyzer |
+| **CTF / crypto** | Magic Decoder (recursive Base64/32/58/85, hex, binary, decimal, URL, ROT13, Morse, reverse with auto flag detection); single-byte XOR brute-force; Caesar/ROT47/Atbash breaker; **Vigenère cryptanalysis** (Index-of-Coincidence key-length + chi-squared key recovery, or decrypt with a known key); **JWT secret cracker** (HS256/384/512 HMAC brute, verifies the real signature); flag extractor; base/number converter |
+| **Secrets** | Credential scanner over 20+ token formats (AWS, GitHub, GitLab, Slack, Google, Stripe, Twilio, SendGrid, OpenAI, private-key blocks, basic-auth URLs) plus a Shannon-entropy sweep — paste text, or fetch a page and its JavaScript and scan both |
+| **Utilities** | Hash identifier (hashcat modes), hash generator and portable MD5/SHA-1/SHA-256/HMAC (work offline, no system crypto needed), smart decoder, JWT analyzer |
 | **Reports** | Everything exports as Markdown or JSON; history stored on-device (file-protected) |
 
 API keys (Shodan, VirusTotal, HIBP, GitHub) are optional, stored in the iOS Keychain, and only sent to their own service.

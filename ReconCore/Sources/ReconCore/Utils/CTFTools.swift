@@ -115,6 +115,79 @@ enum CTFEncoders {
         }
         return Data(out)
     }
+
+    /// Bitcoin/IPFS Base58.
+    static let b58 = Array("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
+    static func base58Decode(_ s: String) -> Data? {
+        let clean = s.trimmed()
+        guard clean.count >= 2 else { return nil }
+        var lookup: [Character: Int] = [:]
+        for (i, c) in b58.enumerated() { lookup[c] = i }
+        var bytes: [UInt8] = [0]
+        for ch in clean {
+            guard let v = lookup[ch] else { return nil }
+            var carry = v
+            for i in 0..<bytes.count { carry += Int(bytes[i]) * 58; bytes[i] = UInt8(carry & 0xff); carry >>= 8 }
+            while carry > 0 { bytes.append(UInt8(carry & 0xff)); carry >>= 8 }
+        }
+        for ch in clean { if ch == "1" { bytes.append(0) } else { break } }
+        return Data(bytes.reversed())
+    }
+
+    /// Ascii85 / Base85 (Adobe variant, optional <~ ~> wrapper).
+    static func ascii85Decode(_ s: String) -> Data? {
+        var t = s.trimmed()
+        if t.hasPrefix("<~") { t = String(t.dropFirst(2)) }
+        if t.hasSuffix("~>") { t = String(t.dropLast(2)) }
+        t = t.filter { !$0.isWhitespace }
+        guard !t.isEmpty else { return nil }
+        var out: [UInt8] = []
+        var group: [UInt8] = []
+        func flush(_ g: [UInt8]) -> Bool {
+            guard !g.isEmpty else { return true }
+            var padded = g
+            while padded.count < 5 { padded.append(84) }   // 'u'
+            var value: UInt32 = 0
+            for c in padded {
+                guard c >= 0 && c <= 84 else { return false }
+                value = value &* 85 &+ UInt32(c)
+            }
+            let bytes = [UInt8(value >> 24 & 0xff), UInt8(value >> 16 & 0xff), UInt8(value >> 8 & 0xff), UInt8(value & 0xff)]
+            out.append(contentsOf: bytes.prefix(g.count - 1))
+            return true
+        }
+        for ch in t.unicodeScalars {
+            if ch == "z" && group.isEmpty { out.append(contentsOf: [0, 0, 0, 0]); continue }
+            guard ch.value >= 33 && ch.value <= 117 else { return nil }
+            group.append(UInt8(ch.value - 33))
+            if group.count == 5 { if !flush(group) { return nil }; group = [] }
+        }
+        if !flush(group) { return nil }
+        return out.isEmpty ? nil : Data(out)
+    }
+
+    static let morseMap: [String: Character] = [
+        ".-":"A","-...":"B","-.-.":"C","-..":"D",".":"E","..-.":"F","--.":"G","....":"H","..":"I",".---":"J",
+        "-.-":"K",".-..":"L","--":"M","-.":"N","---":"O",".--.":"P","--.-":"Q",".-.":"R","...":"S","-":"T",
+        "..-":"U","...-":"V",".--":"W","-..-":"X","-.--":"Y","--..":"Z",
+        "-----":"0",".----":"1","..---":"2","...--":"3","....-":"4",".....":"5","-....":"6","--...":"7",
+        "---..":"8","----.":"9",".-.-.-":".","--..--":",","..--..":"?","-..-.":"/","-....-":"-","-.--.":"(","-.--.-":")"]
+
+    /// ".... ..  ..-. .-.. .- --." with "/" or double-space between words.
+    static func morseDecode(_ s: String) -> String? {
+        let normalized = s.replacingOccurrences(of: "/", with: "   ")
+        let isMorse = s.allSatisfy { ".-/ \n\t".contains($0) } && s.contains(where: { $0 == "." || $0 == "-" })
+        guard isMorse else { return nil }
+        var out = ""
+        for word in normalized.components(separatedBy: "   ") where !word.trimmed().isEmpty {
+            for letter in word.split(separator: " ") {
+                if let c = morseMap[String(letter)] { out.append(c) } else { out.append("?") }
+            }
+            out.append(" ")
+        }
+        let result = out.trimmed()
+        return result.isEmpty ? nil : result
+    }
 }
 
 // MARK: - Magic recursive decoder
@@ -129,6 +202,9 @@ public enum MagicDecoder {
         Transform(name: "Hex") { s in Encoders.hexDecode(s).flatMap(printableText) },
         Transform(name: "Binary") { s in CTFEncoders.fromBinary(s).flatMap(printableText) },
         Transform(name: "Decimal bytes") { s in CTFEncoders.fromDecimalBytes(s).flatMap(printableText) },
+        Transform(name: "Base58") { s in CTFEncoders.base58Decode(s).flatMap(printableText) },
+        Transform(name: "Ascii85") { s in CTFEncoders.ascii85Decode(s).flatMap(printableText) },
+        Transform(name: "Morse") { s in CTFEncoders.morseDecode(s) },
         Transform(name: "URL-decode") { s in
             guard let d = s.removingPercentEncoding, d != s else { return nil }; return d },
         Transform(name: "ROT13") { s in lettersMostly(s) ? Encoders.rot13(s) : nil },
