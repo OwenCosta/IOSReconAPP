@@ -30,7 +30,9 @@ struct ScopeView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Spacer()
-            (Text("RECON").foregroundStyle(Theme.accent) + Text("KIT").foregroundStyle(Theme.fg))
+            // Text.foregroundColor keeps this compiling on the iOS 16 deployment target
+            // (Text.foregroundStyle is iOS 17+).
+            (Text("RECON").foregroundColor(Theme.accent) + Text("KIT").foregroundColor(Theme.fg))
                 .font(.system(size: 40, weight: .bold, design: .monospaced))
                 .tracking(2)
             Text("Network reconnaissance & OSINT toolkit for security professionals.")
