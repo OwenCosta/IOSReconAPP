@@ -1,35 +1,35 @@
 import SwiftUI
 import ReconCore
 
-struct ReportsView: View {
+/// Pushed from the dashboard's navigation stack, so it does not wrap its own NavigationStack.
+struct ReportsScreen: View {
     @EnvironmentObject private var store: SessionStore
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if store.reports.isEmpty {
-                    VStack(spacing: 10) {
-                        Image(systemName: "tray").font(.system(size: 44)).foregroundStyle(Theme.dim)
-                        Text("No reports yet").font(.headline)
-                        Text("Full Recon runs are saved automatically. Tool and scan results can be saved manually.")
-                            .font(.caption).foregroundStyle(Theme.dim).multilineTextAlignment(.center)
-                    }.padding(40)
-                } else {
-                    List {
-                        ForEach(store.reports) { r in
-                            NavigationLink { ReportDetailView(report: r) } label: { ReportRow(report: r) }
-                                .listRowBackground(Theme.card)
-                        }
-                        .onDelete { store.delete(at: $0) }
+        Group {
+            if store.reports.isEmpty {
+                VStack(spacing: 10) {
+                    Image(systemName: "tray").font(.system(size: 44)).foregroundStyle(Theme.dim)
+                    Text("No reports yet").font(.headline)
+                    Text("Full Recon runs are saved automatically. Tool and scan results can be saved manually.")
+                        .font(.caption).foregroundStyle(Theme.dim).multilineTextAlignment(.center)
+                }.padding(40)
+            } else {
+                List {
+                    ForEach(store.reports) { r in
+                        NavigationLink { ReportDetailView(report: r) } label: { ReportRow(report: r) }
+                            .listRowBackground(Theme.card)
                     }
-                    .scrollContentBackground(.hidden)
+                    .onDelete { store.delete(at: $0) }
                 }
+                .scrollContentBackground(.hidden)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .screenBackground()
-            .navigationTitle("Reports")
-            .toolbar { if !store.reports.isEmpty { ToolbarItem(placement: .topBarTrailing) { EditButton() } } }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .screenBackground()
+        .navigationTitle("Reports")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { if !store.reports.isEmpty { ToolbarItem(placement: .topBarTrailing) { EditButton() } } }
     }
 }
 

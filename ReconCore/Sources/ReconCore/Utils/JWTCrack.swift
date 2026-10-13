@@ -86,6 +86,42 @@ public enum JWTCrack {
         return out
     }
 
+    // MARK: Forge
+
+    /// Mint an HMAC-signed JWT from a payload + secret (default HS256). Useful for testing token
+    /// validation and forging after a secret is recovered.
+    public static func forge(payload: String, secret: String, alg: String = "HS256") -> String? {
+        let header = "{\"alg\":\"\(alg)\",\"typ\":\"JWT\"}"
+        func b64(_ s: String) -> String { base64url(Array(s.utf8)) }
+        let signingInput = "\(b64(header)).\(b64(payload))"
+        guard let m = mac(alg: alg, key: Array(secret.utf8), message: Array(signingInput.utf8)) else { return nil }
+        return "\(signingInput).\(base64url(m))"
+    }
+
+    public static func runForge(_ input: String) -> ToolOutput {
+        // "secret :: {json payload}"  — or just a payload (empty secret → alg=none unsigned token)
+        let parts = input.components(separatedBy: "::")
+        let secret = parts.count > 1 ? parts[0].trimmed() : ""
+        let payload = (parts.count > 1 ? parts[1] : parts[0]).trimmed()
+        guard !payload.isEmpty else {
+            return ToolOutput(sections: [ReportSection("JWT forge", items: [ReportItem("Usage", "secret :: {\"user\":\"admin\",\"role\":\"admin\"}", .low)])])
+        }
+        guard (try? JSONSerialization.jsonObject(with: Data(payload.utf8))) != nil else {
+            return ToolOutput(sections: [ReportSection("JWT forge", items: [ReportItem("Error", "payload must be valid JSON", .medium)])])
+        }
+        var s = ReportSection("Forged JWT")
+        if secret.isEmpty {
+            func b64(_ str: String) -> String { base64url(Array(str.utf8)) }
+            let token = "\(b64("{\"alg\":\"none\",\"typ\":\"JWT\"}")).\(b64(payload))."
+            s.add("alg=none token", token)
+            s.note = "Unsigned (alg=none). Add a secret with 'secret :: payload' for a signed HS256 token."
+        } else if let token = forge(payload: payload, secret: secret) {
+            s.add("HS256 token", token)
+            s.add("Signed with", "\"\(secret)\"")
+        }
+        return ToolOutput(sections: [s])
+    }
+
     /// A compact list of secrets that repeatedly show up in misconfigured apps and CTF challenges.
     public static let weakSecrets: [String] = [
         "secret", "secretkey", "secret_key", "secretKey", "jwt", "jwtsecret", "jwt_secret", "jwtSecret",

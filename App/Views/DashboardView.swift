@@ -61,6 +61,9 @@ struct DashboardView: View {
                     NavigationLink { NotesView() } label: { Image(systemName: "flag.fill") }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink { ReportsScreen() } label: { Image(systemName: "tray.full") }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink { SettingsView() } label: { Image(systemName: "gearshape") }
                 }
             }

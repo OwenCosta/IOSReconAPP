@@ -14,8 +14,8 @@ struct RootView: View {
                 .tabItem { Label("Recon", systemImage: "scope") }
             ToolsView()
                 .tabItem { Label("Tools", systemImage: "wrench.and.screwdriver.fill") }
-            ReportsView()
-                .tabItem { Label("Reports", systemImage: "tray.full.fill") }
+            LearnView()
+                .tabItem { Label("Learn", systemImage: "book.fill") }
         }
         .fullScreenCover(isPresented: Binding(get: { !accepted }, set: { _ in })) {
             ScopeView { accepted = true }

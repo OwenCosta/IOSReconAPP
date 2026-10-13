@@ -226,12 +226,12 @@ private struct HostCard: View {
                             .foregroundStyle(risk?.severity.color ?? Color.white)
                             .frame(width: 84, alignment: .leading)
                         Text(p.service).font(Theme.mono)
-                        if let v = p.version { Text(v).font(Theme.mono).foregroundStyle(Theme.dim).lineLimit(1) }
+                        if let v = p.version { Text(v).font(Theme.mono).foregroundStyle(Theme.dim).fixedSize(horizontal: false, vertical: true) }
                         Spacer()
                         if let r = risk, r.severity >= .medium { SeverityChip(severity: r.severity) }
                     }
                     if p.version == nil, let b = p.banner, !b.isEmpty {
-                        Text(b).font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.dim).lineLimit(2)
+                        Text(b).font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.dim).lineLimit(5)
                     }
                     if let r = risk, r.severity >= .medium {
                         Text(r.why).font(.caption2).foregroundStyle(r.severity.color.opacity(0.9))
@@ -370,7 +370,7 @@ private struct BonjourPanel: View {
                                 }
                                 if !s.txt.isEmpty {
                                     Text(s.txt.sorted { $0.key < $1.key }.prefix(6).map { "\($0.key)=\($0.value)" }.joined(separator: "  "))
-                                        .font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.dim).lineLimit(3)
+                                        .font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.dim).lineLimit(8)
                                 }
                             }
                         }
