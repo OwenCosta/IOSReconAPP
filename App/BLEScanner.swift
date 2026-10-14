@@ -37,7 +37,14 @@ final class BLEScanner: NSObject, ObservableObject {
     enum State: Equatable { case unknown, unauthorized, poweredOff, unsupported, scanning, stopped }
     enum ConnState: Equatable { case disconnected, connecting, connected, failed(String) }
 
-    struct GATTChar: Identifiable { let id = UUID(); let uuid: String; let name: String; let props: [String]; var valueHex: String?; var valueText: String? }
+    struct GATTChar: Identifiable {
+        let id = UUID(); let uuid: String; let name: String; let props: [String]
+        var valueHex: String?; var valueText: String?
+        var isNotifying: Bool = false
+        var lastError: String? = nil
+        var canWrite: Bool { props.contains("write") || props.contains("writeNR") }
+        var canNotify: Bool { props.contains("notify") || props.contains("indicate") }
+    }
     struct GATTService: Identifiable { let id = UUID(); let uuid: String; let name: String; var chars: [GATTChar] }
 
     @Published var devices: [Device] = []
@@ -52,6 +59,9 @@ final class BLEScanner: NSObject, ObservableObject {
     private var central: CBCentralManager?
     private var seen: [UUID: Device] = [:]
     private var peripherals: [UUID: CBPeripheral] = [:]
+    /// Live CBCharacteristic refs, keyed by "serviceUUID|charUUID", so the UI (which only
+    /// sees value-type GATTChar/GATTService) can still trigger read/write/notify.
+    private var charRefs: [String: CBCharacteristic] = [:]
     #endif
 
     // MARK: Scanning
@@ -89,6 +99,7 @@ final class BLEScanner: NSObject, ObservableObject {
         central.stopScan()
         if state == .scanning { state = .stopped }
         profile = []
+        charRefs.removeAll()
         connectedID = id
         connState = .connecting
         p.delegate = self
@@ -99,11 +110,56 @@ final class BLEScanner: NSObject, ObservableObject {
     func disconnect() {
         #if canImport(CoreBluetooth)
         if let id = connectedID, let p = peripherals[id] { central?.cancelPeripheralConnection(p) }
+        charRefs.removeAll()
         #endif
         connState = .disconnected
         connectedID = nil
         profile = []
     }
+
+    // MARK: Read / write / notify
+
+    #if canImport(CoreBluetooth)
+    private static func key(_ service: String, _ char: String) -> String { "\(service)|\(char)" }
+
+    private var connectedPeripheral: CBPeripheral? { connectedID.flatMap { peripherals[$0] } }
+
+    func readCharacteristic(service: String, char: String) {
+        guard let p = connectedPeripheral, let c = charRefs[Self.key(service, char)] else { return }
+        p.readValue(for: c)
+    }
+
+    /// Write a hex-encoded value (e.g. "01 FF" or "01FF") to a writable characteristic.
+    func writeCharacteristic(service: String, char: String, hex: String, withResponse: Bool) {
+        guard let p = connectedPeripheral, let c = charRefs[Self.key(service, char)] else { return }
+        guard let data = Encoders.hexDecode(hex) else {
+            setChar(service, char) { $0.lastError = "Invalid hex — use pairs like 01 A4 FF" }
+            return
+        }
+        p.writeValue(data, for: c, type: withResponse ? .withResponse : .withoutResponse)
+        if !withResponse {
+            // No write-confirmation callback arrives for .withoutResponse; reflect it immediately.
+            setChar(service, char) { $0.valueHex = BLEScanner.hex(data); $0.valueText = BLEScanner.printable(data); $0.lastError = nil }
+        }
+    }
+
+    func toggleNotify(service: String, char: String) {
+        guard let p = connectedPeripheral, let c = charRefs[Self.key(service, char)] else { return }
+        let turningOn = !(profileChar(service, char)?.isNotifying ?? false)
+        p.setNotifyValue(turningOn, for: c)
+    }
+
+    private func profileChar(_ service: String, _ char: String) -> GATTChar? {
+        guard let si = profile.firstIndex(where: { $0.uuid == service }) else { return nil }
+        return profile[si].chars.first { $0.uuid == char }
+    }
+
+    private func setChar(_ service: String, _ char: String, _ mutate: (inout GATTChar) -> Void) {
+        guard let si = profile.firstIndex(where: { $0.uuid == service }),
+              let ci = profile[si].chars.firstIndex(where: { $0.uuid == char }) else { return }
+        mutate(&profile[si].chars[ci])
+    }
+    #endif
 
     #if canImport(CoreBluetooth)
     private func beginScan() {
@@ -209,16 +265,47 @@ extension BLEScanner: CBPeripheralDelegate {
         if let i = profile.firstIndex(where: { $0.uuid == service.uuid.uuidString }) {
             profile[i].chars = entries
         }
+        for c in chars { charRefs[Self.key(service.uuid.uuidString, c.uuid.uuidString)] = c }
         // Auto-read readable characteristics.
         for c in chars where c.properties.contains(.read) { peripheral.readValue(for: c) }
     }
 
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-        guard let data = characteristic.value,
-              let si = profile.firstIndex(where: { $0.chars.contains { $0.uuid == characteristic.uuid.uuidString } }),
+        guard let si = profile.firstIndex(where: { $0.chars.contains { $0.uuid == characteristic.uuid.uuidString } }),
               let ci = profile[si].chars.firstIndex(where: { $0.uuid == characteristic.uuid.uuidString }) else { return }
+        if let error {
+            profile[si].chars[ci].lastError = error.localizedDescription
+            return
+        }
+        guard let data = characteristic.value else { return }
         profile[si].chars[ci].valueHex = BLEScanner.hex(data)
         profile[si].chars[ci].valueText = BLEScanner.printable(data)
+        profile[si].chars[ci].lastError = nil
+    }
+
+    func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
+        guard let si = profile.firstIndex(where: { $0.chars.contains { $0.uuid == characteristic.uuid.uuidString } }),
+              let ci = profile[si].chars.firstIndex(where: { $0.uuid == characteristic.uuid.uuidString }) else { return }
+        if let error {
+            profile[si].chars[ci].lastError = error.localizedDescription
+        } else {
+            profile[si].chars[ci].lastError = nil
+            if let data = characteristic.value {
+                profile[si].chars[ci].valueHex = BLEScanner.hex(data)
+                profile[si].chars[ci].valueText = BLEScanner.printable(data)
+            }
+        }
+    }
+
+    func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
+        guard let si = profile.firstIndex(where: { $0.chars.contains { $0.uuid == characteristic.uuid.uuidString } }),
+              let ci = profile[si].chars.firstIndex(where: { $0.uuid == characteristic.uuid.uuidString }) else { return }
+        if let error {
+            profile[si].chars[ci].lastError = error.localizedDescription
+        } else {
+            profile[si].chars[ci].isNotifying = characteristic.isNotifying
+            profile[si].chars[ci].lastError = nil
+        }
     }
 }
 #endif

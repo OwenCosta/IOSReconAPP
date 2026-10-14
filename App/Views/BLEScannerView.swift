@@ -245,17 +245,7 @@ struct BLEDeviceDetailView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(s.name).font(.callout.weight(.semibold)).foregroundStyle(Theme.accent)
             Text(s.uuid).font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.dim)
-            ForEach(s.chars) { c in
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack {
-                        Text(c.name).font(.caption).foregroundStyle(Theme.fg)
-                        Spacer()
-                        Text(c.props.joined(separator: " · ")).font(.system(size: 9, design: .monospaced)).foregroundStyle(Theme.dim)
-                    }
-                    if let t = c.valueText { Text("“\(t)”").font(.caption2).foregroundStyle(Theme.accent) }
-                    if let h = c.valueHex { Text(h).font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.dim).lineLimit(2) }
-                }.padding(.leading, 10)
-            }
+            ForEach(s.chars) { c in GATTCharRow(scanner: scanner, serviceUUID: s.uuid, char: c) }
         }.listRowBackground(Theme.card)
     }
 
@@ -265,5 +255,65 @@ struct BLEDeviceDetailView: View {
             Text(v).font(mono ? .system(.caption2, design: .monospaced) : .caption).foregroundStyle(Theme.fg)
                 .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
         }.listRowBackground(Theme.card)
+    }
+}
+
+/// One GATT characteristic row: value display plus Read / Subscribe / Write actions
+/// (nRF Connect–style interaction, not just a read-only dump).
+private struct GATTCharRow: View {
+    @ObservedObject var scanner: BLEScanner
+    let serviceUUID: String
+    let char: BLEScanner.GATTChar
+    @State private var writeText = ""
+    @State private var showWrite = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                if char.isNotifying { Circle().fill(Severity.low.color).frame(width: 6, height: 6) }
+                Text(char.name).font(.caption).foregroundStyle(Theme.fg)
+                Spacer()
+                Text(char.props.joined(separator: " · ")).font(.system(size: 9, design: .monospaced)).foregroundStyle(Theme.dim)
+            }
+            Text(char.uuid).font(.system(size: 9, design: .monospaced)).foregroundStyle(Theme.dim.opacity(0.7))
+            if let t = char.valueText { Text("“\(t)”").font(.caption2).foregroundStyle(Theme.accent) }
+            if let h = char.valueHex { Text(h).font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.dim).lineLimit(3).textSelection(.enabled) }
+            if let e = char.lastError { Text(e).font(.caption2).foregroundStyle(Severity.high.color) }
+
+            HStack(spacing: 14) {
+                if char.props.contains("read") {
+                    actionButton("Read") { scanner.readCharacteristic(service: serviceUUID, char: char.uuid) }
+                }
+                if char.canNotify {
+                    actionButton(char.isNotifying ? "Unsubscribe" : "Subscribe", tint: char.isNotifying ? Severity.high.color : Theme.accent) {
+                        scanner.toggleNotify(service: serviceUUID, char: char.uuid)
+                    }
+                }
+                if char.canWrite {
+                    actionButton(showWrite ? "Cancel" : "Write") { showWrite.toggle() }
+                }
+            }
+            if showWrite && char.canWrite {
+                HStack(spacing: 6) {
+                    TextField("hex, e.g. 01 A4 FF", text: $writeText)
+                        .font(.system(.caption2, design: .monospaced))
+                        .textInputAutocapitalization(.characters).autocorrectionDisabled()
+                        .padding(6).background(Color.black.opacity(0.3), in: RoundedRectangle(cornerRadius: 6))
+                    Button {
+                        scanner.writeCharacteristic(service: serviceUUID, char: char.uuid, hex: writeText,
+                                                    withResponse: char.props.contains("write"))
+                    } label: { Text("Send").font(.caption2.weight(.semibold)) }
+                    .foregroundStyle(Theme.accent)
+                    .disabled(writeText.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+        .padding(.leading, 10).padding(.vertical, 2)
+    }
+
+    private func actionButton(_ title: String, tint: Color = Theme.accent, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) { Text(title).font(.caption2.weight(.medium)) }
+            .foregroundStyle(tint)
+            .buttonStyle(.plain)
     }
 }
