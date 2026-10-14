@@ -4,6 +4,7 @@ import ReconCore
 /// Conversation list + entry to the AI assistant. Pushed from the dashboard.
 struct AssistantHomeView: View {
     @EnvironmentObject private var ai: AIStore
+    @EnvironmentObject private var localModel: LocalModelStore
     @State private var addingProvider = false
     @State private var managingProviders = false
     @State private var startedChat: AIConversation?
@@ -36,7 +37,12 @@ struct AssistantHomeView: View {
                                 }
                             }
                             .listRowBackground(Theme.card)
-                            .swipeActions { Button(role: .destructive) { ai.deleteConversation(c) } label: { Label("Delete", systemImage: "trash") } }
+                            .swipeActions {
+                                Button(role: .destructive) {
+                                    localModel.forget(conversationID: c.id)
+                                    ai.deleteConversation(c)
+                                } label: { Label("Delete", systemImage: "trash") }
+                            }
                         }
                         if ai.conversations.isEmpty {
                             Text("No chats yet — tap New chat.").font(.caption).foregroundStyle(Theme.dim).listRowBackground(Theme.card)
@@ -92,6 +98,7 @@ struct ProviderListView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var adding = false
     @State private var editing: AIProviderConfig?
+    @State private var showingLocal: AIProviderConfig?
 
     var body: some View {
         NavigationStack {
@@ -104,8 +111,12 @@ struct ProviderListView: View {
                             } label: {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(p.name).foregroundStyle(Theme.fg)
-                                        Text("\(p.model) · \(p.baseURL)").font(.caption).foregroundStyle(Theme.dim).lineLimit(1)
+                                        HStack(spacing: 6) {
+                                            Text(p.name).foregroundStyle(Theme.fg)
+                                            if p.isLocalModel { Image(systemName: "cpu").font(.caption2).foregroundStyle(Theme.dim) }
+                                        }
+                                        Text(p.isLocalModel ? "On-device · \(LocalModelStore.modelSizeHint)" : "\(p.model) · \(p.baseURL)")
+                                            .font(.caption).foregroundStyle(Theme.dim).lineLimit(1)
                                     }
                                     Spacer()
                                     if ai.selectedProviderID == p.id {
@@ -115,8 +126,10 @@ struct ProviderListView: View {
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
-                            Button { editing = p } label: {
-                                Image(systemName: "pencil.circle").foregroundStyle(Theme.dim)
+                            Button {
+                                if p.isLocalModel { showingLocal = p } else { editing = p }
+                            } label: {
+                                Image(systemName: p.isLocalModel ? "info.circle" : "pencil.circle").foregroundStyle(Theme.dim)
                             }
                             .buttonStyle(.plain)
                         }
@@ -126,7 +139,7 @@ struct ProviderListView: View {
                         }
                     }
                 } footer: {
-                    Text("Tap a provider to use it for new chats (saved — it stays selected after relaunch). Tap the pencil to edit.")
+                    Text("Tap a provider to use it for new chats (saved — it stays selected after relaunch). Tap the icon to edit or manage it.")
                         .font(.caption2)
                 }
             }
@@ -134,11 +147,25 @@ struct ProviderListView: View {
             .navigationTitle("AI providers").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
-                ToolbarItem(placement: .navigationBarTrailing) { Button { adding = true } label: { Image(systemName: "plus") } }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Button { adding = true } label: { Label("Remote provider (API / local server)", systemImage: "network") }
+                        if !ai.providers.contains(where: { $0.isLocalModel }) {
+                            Button { addLocal() } label: { Label("On-device model (offline)", systemImage: "cpu") }
+                        }
+                    } label: { Image(systemName: "plus") }
+                }
             }
             .sheet(isPresented: $adding) { AIProviderEditor(config: AIProviderConfig()) }
             .sheet(item: $editing) { c in AIProviderEditor(config: c) }
+            .sheet(item: $showingLocal) { c in LocalModelView(config: c) }
         }
+    }
+
+    private func addLocal() {
+        let c = AIProviderConfig.localModel()
+        ai.upsert(c, key: nil)
+        showingLocal = c
     }
 }
 
@@ -189,4 +216,63 @@ struct AIProviderEditor: View {
         config.name = p.name; config.shape = p.shape; config.baseURL = p.baseURL; config.model = p.model
     }
     private func save() { ai.upsert(config, key: config.savesKey ? apiKey : nil); dismiss() }
+}
+
+/// Download/load status and management for the on-device (MLX) model — a real inference
+/// engine runs entirely on your phone, no network request or API key involved.
+struct LocalModelView: View {
+    let config: AIProviderConfig
+    @EnvironmentObject private var ai: AIStore
+    @EnvironmentObject private var localModel: LocalModelStore
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 20) {
+                Spacer()
+                Image(systemName: "cpu").font(.system(size: 44)).foregroundStyle(Theme.accent)
+                Text(LocalModelStore.modelID).font(.system(.callout, design: .monospaced)).multilineTextAlignment(.center)
+                Text("Runs fully on this device — no network request, no API key, works offline once downloaded. \(LocalModelStore.modelSizeHint) download, cached afterwards. Needs a modern iPhone with several GB of free storage; noticeably slower and lower-quality than a cloud API.")
+                    .font(.caption).foregroundStyle(Theme.dim).multilineTextAlignment(.center)
+
+                statusView
+                Spacer()
+            }
+            .padding(24)
+            .screenBackground()
+            .navigationTitle("On-device model")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
+        }
+    }
+
+    @ViewBuilder private var statusView: some View {
+        switch localModel.status {
+        case .notDownloaded:
+            Button { startLoad() } label: { Label("Download & load (\(LocalModelStore.modelSizeHint))", systemImage: "arrow.down.circle") }
+                .buttonStyle(PrimaryButtonStyle())
+        case .working:
+            VStack(spacing: 8) {
+                ProgressView()
+                Text("Downloading / preparing — this can take several minutes on first run…")
+                    .font(.caption).foregroundStyle(Theme.dim).multilineTextAlignment(.center)
+            }
+        case .ready:
+            VStack(spacing: 12) {
+                Label("Ready", systemImage: "checkmark.circle.fill").foregroundStyle(Theme.accent)
+                Button { ai.selectedProviderID = config.id; dismiss() } label: { Label("Use for new chats", systemImage: "checkmark") }
+                    .buttonStyle(PrimaryButtonStyle())
+            }
+        case .failed(let message):
+            VStack(spacing: 12) {
+                Label(message, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(Severity.high.color).multilineTextAlignment(.center)
+                Button { startLoad() } label: { Label("Retry", systemImage: "arrow.clockwise") }
+                    .buttonStyle(PrimaryButtonStyle())
+            }
+        }
+    }
+
+    private func startLoad() {
+        Task { try? await localModel.ensureLoaded() }
+    }
 }

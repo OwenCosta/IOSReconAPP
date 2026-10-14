@@ -4,6 +4,7 @@ import ReconCore
 /// A single AI conversation: message history, input, and send-to-model.
 struct ChatView: View {
     @EnvironmentObject private var ai: AIStore
+    @EnvironmentObject private var localModel: LocalModelStore
     @State private var convo: AIConversation
     @State private var input = ""
     @State private var sending = false
@@ -163,24 +164,36 @@ struct ChatView: View {
         guard convo.messages.filter({ $0.role == "user" }).count == 1,
               let firstUser = convo.messages.first(where: { $0.role == "user" })?.content,
               !firstUser.isEmpty else { return }
-        let runtime = ai.runtime(p)
         let prompt = """
         Reply with ONLY a short title (3-6 words, no quotes, no trailing punctuation) summarising \
         this chat for a conversation list:
 
         \(firstUser.prefix(300))
         """
-        Task { @MainActor in
-            guard let raw = try? await AIClient.complete(runtime, messages: [
-                .init(role: "system", content: "You write short chat titles only — no extra commentary."),
-                .init(role: "user", content: prompt)
-            ], timeout: 30) else { return }
-            let cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-                .trimmingCharacters(in: CharacterSet(charactersIn: "\"'“”.!"))
-            guard !cleaned.isEmpty, cleaned.count <= 80 else { return }
-            convo.title = cleaned
-            ai.update(convo)
+        let instructions = "You write short chat titles only — no extra commentary."
+        if p.isLocalModel {
+            Task { @MainActor in
+                guard let raw = try? await localModel.scratchRespond(instructions: instructions, prompt: prompt) else { return }
+                applyGeneratedTitle(raw)
+            }
+        } else {
+            let runtime = ai.runtime(p)
+            Task { @MainActor in
+                guard let raw = try? await AIClient.complete(runtime, messages: [
+                    .init(role: "system", content: instructions),
+                    .init(role: "user", content: prompt)
+                ], timeout: 30) else { return }
+                applyGeneratedTitle(raw)
+            }
         }
+    }
+
+    private func applyGeneratedTitle(_ raw: String) {
+        let cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "\"'“”.!"))
+        guard !cleaned.isEmpty, cleaned.count <= 80 else { return }
+        convo.title = cleaned
+        ai.update(convo)
     }
 
     private func send() {
@@ -195,6 +208,14 @@ struct ChatView: View {
         ai.update(convo)
         sending = true
 
+        // The on-device model doesn't go through AIClient/HTTP at all — it has no concept of
+        // tool-calling in this version, so it always takes its own single path regardless of
+        // the tools toggle or whether the message looks like small talk.
+        if p.isLocalModel {
+            sendLocal(p)
+            return
+        }
+
         // Small talk never goes through the tool-calling API at all — not just a prompt
         // without the catalog, but the OpenAI/Anthropic request body itself omits the
         // tools/tool_choice fields (agentComplete always sets those when allowTools is true,
@@ -205,6 +226,26 @@ struct ChatView: View {
             sendWithTools(p)
         } else {
             sendStreaming(p)
+        }
+    }
+
+    /// On-device (MLX) path: no HTTP request, no tool-calling in this version — resolves in
+    /// one block like sendWithTools rather than streaming token-by-token.
+    private func sendLocal(_ p: AIProviderConfig) {
+        let conversationID = convo.id
+        let lastUser = convo.messages.last(where: { $0.role == "user" })?.content ?? ""
+        withBackgroundTime {
+            do {
+                let reply = try await localModel.respond(conversationID: conversationID,
+                                                          system: AIClient.defaultSystemPrompt,
+                                                          userMessage: lastUser)
+                convo.messages.append(.init(role: "assistant", content: reply))
+                maybeGenerateTitle(p)
+            } catch {
+                errorText = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            }
+            ai.update(convo)
+            sending = false
         }
     }
 

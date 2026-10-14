@@ -11,11 +11,26 @@ struct AIProviderConfig: Identifiable, Codable, Equatable {
     var model: String = ""
     var temperature: Double = 0.4
     var savesKey: Bool = true
+    /// Runs fully on-device via MLX instead of talking to a network endpoint — baseURL/apiKey/
+    /// shape are unused when this is true. Optional so configs saved before this field existed
+    /// still decode (a missing value means false, i.e. an ordinary remote provider).
+    var isLocal: Bool?
+    var isLocalModel: Bool { isLocal ?? false }
 
     var isValid: Bool {
-        !name.trimmingCharacters(in: .whitespaces).isEmpty &&
-        !baseURL.trimmingCharacters(in: .whitespaces).isEmpty &&
-        !model.trimmingCharacters(in: .whitespaces).isEmpty
+        guard !name.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
+        if isLocalModel { return true }
+        return !baseURL.trimmingCharacters(in: .whitespaces).isEmpty &&
+               !model.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    static func localModel() -> AIProviderConfig {
+        var c = AIProviderConfig()
+        c.name = "On-device (offline)"
+        c.isLocal = true
+        c.model = LocalModelStore.modelID
+        c.savesKey = false
+        return c
     }
 
     struct Preset { let name: String; let shape: AIClient.Shape; let baseURL: String; let model: String; let needsKey: Bool; let hint: String }

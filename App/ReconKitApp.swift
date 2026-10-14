@@ -6,6 +6,7 @@ struct ReconKitApp: App {
     @StateObject private var notes = NotesStore()
     @StateObject private var ssh = SSHStore()
     @StateObject private var ai = AIStore()
+    @StateObject private var localModel = LocalModelStore()
     @StateObject private var entitlements = Entitlements()
 
     init() {
@@ -31,6 +32,7 @@ struct ReconKitApp: App {
                 .environmentObject(notes)
                 .environmentObject(ssh)
                 .environmentObject(ai)
+                .environmentObject(localModel)
                 .environmentObject(entitlements)
                 .preferredColorScheme(.dark)
                 .tint(Theme.accent)
