@@ -182,7 +182,8 @@ private struct PortScanPanel: View {
                 ForEach(groupedLive(), id: \.0) { host, ports in HostCard(host: host, ports: ports, hint: nil, closed: 0, filtered: 0) }
             } else {
                 ForEach(scan.results) { h in
-                    HostCard(host: h.host, ports: h.openPorts, hint: h.deviceHint, closed: h.closedCount, filtered: h.filteredCount)
+                    HostCard(host: h.host, ports: h.openPorts, hint: h.deviceHint, closed: h.closedCount,
+                             filtered: h.filteredCount, proxyWarning: h.likelyProxyInterference, scanned: h.scannedCount)
                 }
                 if !scan.results.isEmpty {
                     Button {
@@ -206,6 +207,8 @@ private struct HostCard: View {
     let hint: String?
     let closed: Int
     let filtered: Int
+    var proxyWarning: Bool = false
+    var scanned: Int = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -214,7 +217,12 @@ private struct HostCard: View {
                 Spacer()
                 Text("\(ports.count) open").font(.caption).foregroundStyle(Theme.dim)
             }
-            if let hint = hint { Text(hint).font(.caption).foregroundStyle(Theme.dim) }
+            if proxyWarning {
+                Label("\(ports.count)/\(scanned) ports open — a carrier NAT / captive portal / proxy is likely answering for every port. Re-scan on Wi-Fi; these results are unreliable.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption).foregroundStyle(Severity.high.color).fixedSize(horizontal: false, vertical: true)
+            }
+            if let hint = hint, !proxyWarning { Text(hint).font(.caption).foregroundStyle(Theme.dim) }
             if ports.isEmpty {
                 Text("No open ports found.").font(.caption).foregroundStyle(Theme.dim)
             }

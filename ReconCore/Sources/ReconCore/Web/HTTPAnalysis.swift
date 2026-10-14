@@ -207,7 +207,7 @@ public enum WebRecon {
         .init(name: "Angular", category: "JS library", place: .body, pattern: #"ng-version=\"([\d.]+)\"|<app-root"#),
         .init(name: "jQuery", category: "JS library", place: .body, pattern: #"jquery[-.]?(?:min\.)?(\d+\.\d+\.\d+)?(?:\.min)?\.js"#),
         .init(name: "Bootstrap", category: "UI", place: .body, pattern: #"bootstrap(?:\.min)?\.(?:css|js)|bootstrap/(\d+\.\d+\.\d+)"#),
-        .init(name: "Tailwind CSS", category: "UI", place: .body, pattern: #"tailwind"#),
+        .init(name: "Tailwind CSS", category: "UI", place: .body, pattern: #"cdn\.tailwindcss\.com|tailwind(?:\.min)?\.css|/tailwind[./]"#),
         .init(name: "Laravel", category: "Framework", place: .cookie, pattern: #"laravel_session|XSRF-TOKEN"#),
         .init(name: "Django", category: "Framework", place: .cookie, pattern: #"csrftoken|django"#),
         .init(name: "Ruby on Rails", category: "Framework", place: .cookie, pattern: #"_rails|_session_id"#),
@@ -222,9 +222,9 @@ public enum WebRecon {
         .init(name: "Ghost", category: "CMS", place: .body, pattern: #"<meta name=\"generator\" content=\"Ghost ?([\d.]+)?"#),
         .init(name: "Shopify", category: "E-commerce", place: .body, pattern: #"cdn\.shopify\.com|Shopify\.theme"#),
         .init(name: "Magento", category: "E-commerce", place: .body, pattern: #"Mage\.Cookies|/static/frontend/Magento"#),
-        .init(name: "WooCommerce", category: "E-commerce", place: .body, pattern: #"woocommerce"#),
+        .init(name: "WooCommerce", category: "E-commerce", place: .body, pattern: #"/plugins/woocommerce|woocommerce/assets|wp-content/plugins/woocommerce|class="woocommerce"#),
         .init(name: "Wix", category: "Builder", place: .body, pattern: #"static\.wixstatic\.com|X-Wix-"#),
-        .init(name: "Squarespace", category: "Builder", place: .body, pattern: #"static1\.squarespace\.com|Squarespace"#),
+        .init(name: "Squarespace", category: "Builder", place: .body, pattern: #"static1\.squarespace\.com|squarespace\.com/universal|this\.Squarespace"#),
         .init(name: "Webflow", category: "Builder", place: .body, pattern: #"data-wf-site|webflow\.js"#),
         // third parties
         .init(name: "Google Analytics", category: "Analytics", place: .body, pattern: #"google-analytics\.com|googletagmanager\.com|gtag\("#),
@@ -324,7 +324,7 @@ public enum WebRecon {
             out.findings.append(Finding(.medium, "Insecure cookie flags: \(item.label)", item.value, source: "web"))
         }
 
-        var techSec = ReportSection("Technology fingerprint")
+        var techSec = ReportSection("Technology fingerprint", note: "Heuristic — based on headers, cookies and page markers. Each line shows the evidence; verify before relying on it.")
         let techs = fingerprint(headers: h, cookies: probe.final.setCookies, body: probe.final.text)
         for t in techs { techSec.add(t.category, t.name + (t.version.map { " \($0)" } ?? "") + "   (\(t.evidence))") }
         if techs.isEmpty { techSec.add("Result", "nothing identified") }

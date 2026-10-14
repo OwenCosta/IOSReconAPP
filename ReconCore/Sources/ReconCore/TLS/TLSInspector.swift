@@ -34,7 +34,8 @@ public enum TLSAnalysis {
         out.sections.append(conn)
 
         if !s.protocolSupport.isEmpty {
-            var p = ReportSection("Protocol support")
+            var p = ReportSection("Protocol support",
+                                  note: "Tested by forcing each version. iOS disables TLS 1.0/1.1 system-wide, so a “rejected” there reflects this device — not proof the server disabled it.")
             for (name, ok) in s.protocolSupport {
                 let legacy = name.contains("1.0") || name.contains("1.1")
                 p.add(name, ok ? "accepted" : "rejected", ok && legacy ? .medium : .info)

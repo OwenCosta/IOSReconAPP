@@ -59,7 +59,9 @@ public enum EmailSecurity {
             case "~all": sev = .low; verdict = "softfail (~all) – spoofed mail is flagged, not rejected"
             case "?all": sev = .medium; verdict = "neutral (?all) – SPF gives no protection"
             case "+all": sev = .critical; verdict = "+all – ANYONE may send as this domain"
-            default: sev = .medium; verdict = "no terminating 'all' mechanism"
+            default:
+                if spf.record.lowercased().contains("redirect=") { verdict = "uses redirect= (policy delegated to another domain)" }
+                else { sev = .medium; verdict = "no terminating 'all' mechanism" }
             }
             if spfRecords.count > 1 { sec.add("SPF", "multiple SPF records (invalid per RFC 7208)", .medium) }
             sec.add("SPF", verdict, sev)

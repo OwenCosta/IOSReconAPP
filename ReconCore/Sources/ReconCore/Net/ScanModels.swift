@@ -43,6 +43,15 @@ public struct HostResult: Codable, Identifiable, Hashable, Sendable {
     public var deviceHint: String?
 
     public var id: String { host }
+
+    public var scannedCount: Int { openPorts.filter { $0.proto == "tcp" }.count + closedCount + filteredCount }
+
+    /// Carrier-grade NAT, captive portals and transparent proxies sometimes complete the TCP
+    /// handshake for *every* port, so a huge fraction of "open" ports is almost certainly not real.
+    public var likelyProxyInterference: Bool {
+        let tcpOpen = openPorts.filter { $0.proto == "tcp" }.count
+        return scannedCount >= 15 && Double(tcpOpen) / Double(scannedCount) >= 0.8
+    }
 }
 
 // MARK: - Banner cleaning and service identification (pure; unit-tested)

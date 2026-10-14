@@ -189,19 +189,26 @@ public enum FullRecon {
                 for h in hostResults {
                     var s = ReportSection("Open ports – \(h.host)",
                                           note: "\(h.closedCount) closed, \(h.filteredCount) filtered/no-response. TCP connect scan.")
-                    for p in h.openPorts {
-                        let risk = ServiceDB.risk(port: p.port)
-                        var v = p.service
-                        if let ver = p.version { v += "  \(ver)" }
-                        if let b = p.banner, p.version == nil { v += "  “\(b.prefix(80))”" }
-                        s.add("\(p.port)/tcp", v, risk?.severity ?? .info)
-                        if let r = risk, r.severity >= .medium {
-                            report.findings.append(Finding(r.severity, "Open \(p.service) (\(p.port)/tcp) on \(h.host)", r.why, source: "portscan"))
-                            cont.yield(.finding(report.findings.last!))
+                    if h.likelyProxyInterference {
+                        // Don't emit per-port findings we can't trust.
+                        s.add("⚠︎ Unreliable", "\(h.openPorts.count)/\(h.scannedCount) ports reported open — a carrier NAT / captive portal / proxy is likely answering for every port. Re-scan on Wi-Fi.", .high)
+                        report.findings.append(Finding(.medium, "Port scan of \(h.host) unreliable (proxy/NAT interference)", "Nearly every probed port reported open.", source: "portscan"))
+                        cont.yield(.finding(report.findings.last!))
+                    } else {
+                        for p in h.openPorts {
+                            let risk = ServiceDB.risk(port: p.port)
+                            var v = p.service
+                            if let ver = p.version { v += "  \(ver)" }
+                            if let b = p.banner, p.version == nil { v += "  “\(b.prefix(80))”" }
+                            s.add("\(p.port)/tcp", v, risk?.severity ?? .info)
+                            if let r = risk, r.severity >= .medium {
+                                report.findings.append(Finding(r.severity, "Open \(p.service) (\(p.port)/tcp) on \(h.host)", r.why, source: "portscan"))
+                                cont.yield(.finding(report.findings.last!))
+                            }
                         }
+                        if h.openPorts.isEmpty { s.add("Result", "no open ports among scanned set") }
+                        if let hint = h.deviceHint { s.add("Role hint", hint) }
                     }
-                    if h.openPorts.isEmpty { s.add("Result", "no open ports among scanned set") }
-                    if let hint = h.deviceHint { s.add("Role hint", hint) }
                     report.sections.append(s)
                     cont.yield(.section(s))
                 }
