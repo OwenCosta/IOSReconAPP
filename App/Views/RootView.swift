@@ -32,10 +32,13 @@ struct ScopeView: View {
             Spacer()
             // Text.foregroundColor keeps this compiling on the iOS 16 deployment target
             // (Text.foregroundStyle is iOS 17+).
-            (Text("RECON").foregroundColor(Theme.accent) + Text("KIT").foregroundColor(Theme.fg))
-                .font(.system(size: 40, weight: .bold, design: .monospaced))
-                .tracking(2)
-            Text("Network reconnaissance & OSINT toolkit for security professionals.")
+            VStack(alignment: .leading, spacing: 2) {
+                (Text("NET").foregroundColor(Theme.accent) + Text("TACTIX").foregroundColor(Theme.fg))
+                    .font(.system(size: 40, weight: .bold, design: .monospaced))
+                    .tracking(2)
+                Text("by OathSec").font(.system(.caption, design: .monospaced)).foregroundColor(Theme.dim)
+            }
+            Text("Network reconnaissance, OSINT & offensive-security toolkit for security professionals.")
                 .foregroundStyle(Theme.dim)
 
             VStack(alignment: .leading, spacing: 10) {

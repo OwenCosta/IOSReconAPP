@@ -1,0 +1,160 @@
+import SwiftUI
+import Security
+import ReconCore
+
+/// A saved AI provider (endpoint + model). The API key, if any, lives in the Keychain.
+struct AIProviderConfig: Identifiable, Codable, Equatable {
+    var id = UUID()
+    var name: String = ""
+    var shape: AIClient.Shape = .openAI
+    var baseURL: String = ""
+    var model: String = ""
+    var temperature: Double = 0.4
+    var savesKey: Bool = true
+
+    var isValid: Bool {
+        !name.trimmingCharacters(in: .whitespaces).isEmpty &&
+        !baseURL.trimmingCharacters(in: .whitespaces).isEmpty &&
+        !model.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    struct Preset { let name: String; let shape: AIClient.Shape; let baseURL: String; let model: String; let needsKey: Bool; let hint: String }
+    static let presets: [Preset] = [
+        Preset(name: "LM Studio (local)", shape: .openAI, baseURL: "http://192.168.1.50:1234/v1", model: "", needsKey: false,
+               hint: "Run LM Studio on your computer, start its server, and use that computer's LAN IP. Model = the one you loaded."),
+        Preset(name: "Ollama (local)", shape: .openAI, baseURL: "http://192.168.1.50:11434/v1", model: "llama3.1", needsKey: false,
+               hint: "Run `ollama serve` with OLLAMA_HOST=0.0.0.0, use the computer's LAN IP."),
+        Preset(name: "OpenAI", shape: .openAI, baseURL: "https://api.openai.com/v1", model: "gpt-4o-mini", needsKey: true,
+               hint: "Needs an OpenAI API key."),
+        Preset(name: "OpenRouter", shape: .openAI, baseURL: "https://openrouter.ai/api/v1", model: "openai/gpt-4o-mini", needsKey: true,
+               hint: "One key, many models."),
+        Preset(name: "Anthropic (Claude)", shape: .anthropic, baseURL: "https://api.anthropic.com/v1", model: "claude-3-5-sonnet-latest", needsKey: true,
+               hint: "Needs an Anthropic API key."),
+    ]
+}
+
+struct AIConversation: Identifiable, Codable, Equatable {
+    struct Msg: Identifiable, Codable, Equatable {
+        var id = UUID()
+        var role: String        // user | assistant | system
+        var content: String
+        var date: Date = Date()
+    }
+    var id = UUID()
+    var title: String = "New chat"
+    var providerID: UUID?
+    var messages: [Msg] = []
+    var updated: Date = Date()
+}
+
+@MainActor
+final class AIStore: ObservableObject {
+    @Published private(set) var providers: [AIProviderConfig] = []
+    @Published private(set) var conversations: [AIConversation] = []
+    @Published var selectedProviderID: UUID?
+
+    private static let service = "com.nettactix.ai"
+    private let provURL: URL
+    private let convURL: URL
+
+    init() {
+        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        provURL = dir.appendingPathComponent("ai_providers.json")
+        convURL = dir.appendingPathComponent("ai_conversations.json")
+        load()
+        if selectedProviderID == nil { selectedProviderID = providers.first?.id }
+    }
+
+    var selectedProvider: AIProviderConfig? { providers.first { $0.id == selectedProviderID } }
+
+    // MARK: Providers
+
+    func upsert(_ p: AIProviderConfig, key: String?) {
+        if let i = providers.firstIndex(where: { $0.id == p.id }) { providers[i] = p }
+        else { providers.append(p); if selectedProviderID == nil { selectedProviderID = p.id } }
+        if p.savesKey { setKey(key, for: p.id) } else { setKey(nil, for: p.id) }
+        saveProviders()
+    }
+
+    func deleteProvider(_ p: AIProviderConfig) {
+        providers.removeAll { $0.id == p.id }
+        setKey(nil, for: p.id)
+        if selectedProviderID == p.id { selectedProviderID = providers.first?.id }
+        saveProviders()
+    }
+
+    /// Build the runtime provider (with key) for a config.
+    func runtime(_ c: AIProviderConfig) -> AIClient.Provider {
+        AIClient.Provider(shape: c.shape, baseURL: c.baseURL, apiKey: key(for: c.id), model: c.model, temperature: c.temperature)
+    }
+
+    // MARK: Conversations
+
+    @discardableResult
+    func newConversation() -> AIConversation {
+        var c = AIConversation()
+        c.providerID = selectedProviderID
+        conversations.insert(c, at: 0)
+        saveConversations()
+        return c
+    }
+
+    func update(_ c: AIConversation) {
+        guard let i = conversations.firstIndex(where: { $0.id == c.id }) else { return }
+        var updated = c
+        updated.updated = Date()
+        conversations[i] = updated
+        // Keep most-recent first.
+        conversations.sort { $0.updated > $1.updated }
+        saveConversations()
+    }
+
+    func deleteConversation(_ c: AIConversation) {
+        conversations.removeAll { $0.id == c.id }
+        saveConversations()
+    }
+
+    func clearConversations() { conversations.removeAll(); saveConversations() }
+
+    // MARK: Persistence
+
+    private func load() {
+        let dec = JSONDecoder(); dec.dateDecodingStrategy = .iso8601
+        if let d = try? Data(contentsOf: provURL) { providers = (try? dec.decode([AIProviderConfig].self, from: d)) ?? [] }
+        if let d = try? Data(contentsOf: convURL) { conversations = (try? dec.decode([AIConversation].self, from: d)) ?? [] }
+    }
+    private func saveProviders() { write(providers, to: provURL) }
+    private func saveConversations() { write(conversations, to: convURL) }
+    private func write<T: Encodable>(_ value: T, to url: URL) {
+        let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601
+        if let d = try? enc.encode(value) { try? d.write(to: url, options: [.atomic, .completeFileProtection]) }
+    }
+
+    // MARK: Keychain
+
+    func key(for id: UUID) -> String? { getKey(id) }
+
+    private func setKey(_ value: String?, for id: UUID) {
+        let base: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+                                   kSecAttrService as String: Self.service,
+                                   kSecAttrAccount as String: id.uuidString]
+        SecItemDelete(base as CFDictionary)
+        let v = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !v.isEmpty else { return }
+        var add = base
+        add[kSecValueData as String] = Data(v.utf8)
+        add[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        SecItemAdd(add as CFDictionary, nil)
+    }
+    private func getKey(_ id: UUID) -> String? {
+        let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+                                kSecAttrService as String: Self.service,
+                                kSecAttrAccount as String: id.uuidString,
+                                kSecReturnData as String: true,
+                                kSecMatchLimit as String: kSecMatchLimitOne]
+        var item: CFTypeRef?
+        guard SecItemCopyMatching(q as CFDictionary, &item) == errSecSuccess,
+              let d = item as? Data, let s = String(data: d, encoding: .utf8), !s.isEmpty else { return nil }
+        return s
+    }
+}

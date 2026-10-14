@@ -36,7 +36,7 @@ targets:
     info:
       path: App/Info.plist
       properties:
-        CFBundleDisplayName: ReconKit
+        CFBundleDisplayName: NetTactix
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false

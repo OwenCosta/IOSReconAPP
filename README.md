@@ -1,6 +1,6 @@
-# ReconKit – iOS recon & OSINT toolkit
+# NetTactix – iOS recon & offensive-security toolkit  ·  by OathSec
 
-A native SwiftUI app for network reconnaissance and open-source intelligence, built to be sideloaded onto your own iPhone with Xcode.
+A native SwiftUI app for network reconnaissance, OSINT and authorised offensive security, built to be sideloaded onto your own iPhone with Xcode. (Internal Xcode target/scheme is still `ReconKit`.)
 
 > **Use only on systems you own or are explicitly authorised to test.** Active tools send traffic to the target. The app makes you acknowledge this on first launch.
 
@@ -38,6 +38,8 @@ In Xcode:
 | **Deep recon** | Favicon hashing (Shodan/Censys pivot, MurmurHash3 matched to `mmh3`); endpoint extractor that pulls hidden paths & APIs from a page and its JavaScript; Google-dork generator (16 ready dorks per domain). Reports are organised into **folders** (one per target) you can rename, move between, and delete |
 | **SSH terminal** | A real SSH client (Citadel / SwiftNIO-SSH): save servers and open a live interactive shell on your phone — password or OpenSSH private-key auth (ed25519/RSA, passphrase-protected keys supported), persistent shell (cd/env/history survive), streamed output, Ctrl-C/D/Z/Tab/Esc/arrow keys, trust-on-first-use host keys. Credentials are kept only in the device Keychain. Run commands, triage boxes and pivot without a laptop. Includes an **SFTP file browser** over the same connection — navigate the remote filesystem and download files to your phone to view or share |
 | **Generators** | On-device CSPRNG password & passphrase generator (with strength), random hex/Base64/Base64URL token & UUID v4 generator, Unix-epoch ⇄ ISO-8601 timestamp converter, xxd-style hex dump, CVSS v3.1 base-score calculator, JWT forge |
+| **AI Copilot** | In-app chat assistant that connects to a local model (LM Studio / Ollama on your computer) or any API key (OpenAI, OpenRouter, Anthropic, Groq, Together — OpenAI-compatible or Anthropic shapes). Fully saved on-device (conversations in Documents, keys in Keychain). Pre-prompted as a recon/CTF copilot that knows the app's tools |
+| **MITRE ATT&CK** | Offline ATT&CK Enterprise browser: all 14 tactics and 54 high-use techniques with plain descriptions, detection ideas, mitigations and reference links; lookup by technique id, tactic id or keyword |
 | **Learn** | Built-in field guide: ~60 plain-language definitions across networking, DNS, web, TLS, crypto, OSINT, red team and scoring — searchable, offline |
 | **Secrets** | Credential scanner over 20+ token formats (AWS, GitHub, GitLab, Slack, Google, Stripe, Twilio, SendGrid, OpenAI, private-key blocks, basic-auth URLs) plus a Shannon-entropy sweep — paste text, or fetch a page and its JavaScript and scan both |
 | **Utilities** | Hash identifier (hashcat modes), hash generator and portable MD5/SHA-1/SHA-256/HMAC (work offline, no system crypto needed), smart decoder, JWT analyzer |

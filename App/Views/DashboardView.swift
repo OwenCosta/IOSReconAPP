@@ -41,6 +41,7 @@ struct DashboardView: View {
             ScrollView {
                 VStack(spacing: 14) {
                     networkCard
+                    copilotCard
                     terminalCard
                     bluetoothCard
                     flagCard
@@ -57,7 +58,7 @@ struct DashboardView: View {
                 .padding(16)
             }
             .screenBackground()
-            .navigationTitle("ReconKit")
+            .navigationTitle("NetTactix")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     NavigationLink { NotesView() } label: { Image(systemName: "flag.fill") }
@@ -129,6 +130,23 @@ struct DashboardView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("SSH Terminal").font(.headline).foregroundStyle(Theme.accent)
                     Text("Connect to your servers and run commands live — no laptop needed")
+                        .font(.caption).foregroundStyle(Theme.dim)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.dim)
+            }
+            .card()
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var copilotCard: some View {
+        NavigationLink { AssistantHomeView() } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "sparkles").font(.title3).foregroundStyle(Theme.accent).frame(width: 26)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("AI Copilot").font(.headline).foregroundStyle(Theme.accent)
+                    Text("Chat with a local or API AI for recon, CTF & app help — saved on-device")
                         .font(.caption).foregroundStyle(Theme.dim)
                 }
                 Spacer()
