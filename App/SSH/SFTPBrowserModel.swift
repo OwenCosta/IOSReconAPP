@@ -111,9 +111,10 @@ final class SFTPBrowserModel: ObservableObject {
             result.sort { a, b in a.isDir != b.isDir ? a.isDir && !b.isDir : a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending }
             entries = result
             phase = .ready
-        } catch {
-            error = SSHConnect.describe(error)
-            if phase == .connecting { phase = .failed(error ?? "failed") }
+        } catch let err {
+            let msg = SSHConnect.describe(err)
+            self.error = msg
+            if phase == .connecting { phase = .failed(msg) }
         }
         busy = false
         #endif

@@ -1,4 +1,5 @@
 import SwiftUI
+import ReconCore
 
 /// Live BLE scanner UI. Pushed from the dashboard.
 struct BLEScannerView: View {
