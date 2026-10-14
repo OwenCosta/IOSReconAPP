@@ -26,8 +26,57 @@ final class SessionStore: ObservableObject {
         save()
     }
 
+    func delete(_ report: ReconReport) {
+        reports.removeAll { $0.id == report.id }
+        save()
+    }
+
     func clear() {
         reports.removeAll()
+        save()
+    }
+
+    // MARK: Folders / projects
+
+    static let unsorted = "Unsorted"
+
+    func folder(of report: ReconReport) -> String {
+        let p = report.project?.trimmingCharacters(in: .whitespaces) ?? ""
+        return p.isEmpty ? Self.unsorted : p
+    }
+
+    /// Folder names, most-recently-updated first.
+    var folders: [String] {
+        var seen = [String: Date]()
+        for r in reports {
+            let f = folder(of: r)
+            let t = r.finished ?? r.started
+            if let existing = seen[f] { if t > existing { seen[f] = t } } else { seen[f] = t }
+        }
+        return seen.sorted { $0.value > $1.value }.map(\.key)
+    }
+
+    func reports(in folder: String) -> [ReconReport] {
+        reports.filter { self.folder(of: $0) == folder }.sorted { ($0.finished ?? $0.started) > ($1.finished ?? $1.started) }
+    }
+
+    func move(_ report: ReconReport, to folder: String?) {
+        guard let i = reports.firstIndex(where: { $0.id == report.id }) else { return }
+        let f = folder?.trimmingCharacters(in: .whitespaces)
+        reports[i].project = (f == nil || f!.isEmpty || f == Self.unsorted) ? nil : f
+        save()
+    }
+
+    func renameFolder(_ old: String, to new: String) {
+        let newName = new.trimmingCharacters(in: .whitespaces)
+        for i in reports.indices where folder(of: reports[i]) == old {
+            reports[i].project = (newName.isEmpty || newName == Self.unsorted) ? nil : newName
+        }
+        save()
+    }
+
+    func deleteFolder(_ name: String) {
+        reports.removeAll { folder(of: $0) == name }
         save()
     }
 
@@ -130,7 +179,10 @@ final class ToolRunnerModel: ObservableObject {
 // MARK: - Helpers
 
 func scanReport(target: String, hosts: [HostResult]) -> ReconReport {
-    var report = ReconReport(kind: "Port Scan", target: target, finished: Date())
+    // Group a scan under a folder named after its target (first host if it's a range/CIDR).
+    let folder = hosts.count == 1 ? hosts[0].host : TargetParser.stripToHost(target)
+    var report = ReconReport(kind: "Port Scan", target: target, finished: Date(),
+                             project: folder.isEmpty ? nil : folder)
     for h in hosts {
         var s = ReportSection("Host \(h.host)", note: "Found via \(h.aliveReason). \(h.closedCount) closed, \(h.filteredCount) filtered.")
         for p in h.openPorts {

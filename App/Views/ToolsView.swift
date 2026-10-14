@@ -149,8 +149,10 @@ struct ToolRunnerView: View {
     }
 
     private func save(_ out: ToolOutput) {
+        // Group under a folder named after the host/domain if the input looks like one.
+        let folder = spec.secureInput ? nil : TargetParser.domain(from: input) ?? (IPv4.isIP(TargetParser.stripToHost(input)) ? TargetParser.stripToHost(input) : nil)
         store.add(ReconReport(kind: spec.title, target: input.isEmpty ? spec.title : (spec.secureInput ? "(hidden input)" : input),
-                              finished: Date(), sections: out.sections, findings: out.findings))
+                              finished: Date(), sections: out.sections, findings: out.findings, project: folder))
         saved = true
     }
 }

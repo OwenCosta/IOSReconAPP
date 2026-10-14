@@ -151,6 +151,22 @@ public enum ToolCatalog {
                               input: "Product (optional)", placeholder: "tomcat · cisco · mysql · camera", optional: true) { input, _ in
             RedTeam.runDefaultCreds(input)
         })
+        tools.append(ToolSpec("payloads", "Payload Cheat-Sheet", "XSS, SQLi, SSTI, LFI, SSRF, XXE, command-injection", icon: "doc.plaintext", .redteam,
+                              input: "Category (optional)", placeholder: "xss · sqli · ssti · lfi · ssrf", optional: true) { input, _ in
+            PayloadLibrary.run(input)
+        })
+        tools.append(ToolSpec("nmap", "Nmap Command Builder", "Ready-to-run nmap commands for a target", icon: "terminal.fill", .redteam,
+                              input: "Target", placeholder: "10.10.10.5  ·  example.com  ·  10.0.0.0/24") { input, _ in
+            NmapBuilder.run(input)
+        })
+        tools.append(ToolSpec("crack-cmd", "Cracking Command Builder", "hashcat / John commands for a hash", icon: "terminal", .redteam,
+                              input: "Hash", placeholder: "5f4dcc3b5aa765d61d8327deb882cf99", multiline: true) { input, _ in
+            CrackCommands.run(input)
+        })
+        tools.append(ToolSpec("usernames", "Username Generator", "Corporate username/email formats from a name", icon: "person.2", .redteam,
+                              input: "First Last [:: domain]", placeholder: "John Doe :: example.com") { input, _ in
+            UsernameGen.run(input)
+        })
         tools.append(ToolSpec("numbers", "Base Converter", "Decimal ⇄ hex ⇄ octal ⇄ binary ⇄ ASCII", icon: "number.square", .ctf,
                               input: "Number or text", placeholder: "0x41  ·  65  ·  hello") { input, _ in
             NumberConverter.run(input)
@@ -206,6 +222,18 @@ public enum ToolCatalog {
         })
         tools.append(ToolSpec("wayback", "Wayback Machine Mining", "Historic URLs, hosts, backups & admin paths", icon: "clock.arrow.circlepath", .osint) { input, _ in
             try await Wayback.run(try domain(input))
+        })
+        tools.append(ToolSpec("favicon", "Favicon Hash", "Shodan/Censys pivot — find hosts with the same favicon", icon: "app.badge", .osint,
+                              input: "URL or domain", placeholder: "https://example.com", active: true) { input, _ in
+            await FaviconHash.run(input)
+        })
+        tools.append(ToolSpec("endpoints", "Endpoint Extractor", "Pull hidden paths & APIs from a page and its JS", icon: "arrow.triangle.branch", .osint,
+                              input: "URL or pasted JS/HTML", placeholder: "https://example.com", active: true, multiline: true) { input, _ in
+            await EndpointExtractor.run(input)
+        })
+        tools.append(ToolSpec("dorks", "Google Dork Generator", "16 ready-made search dorks for a domain", icon: "magnifyingglass.circle", .osint,
+                              input: "Domain", placeholder: "example.com", multiline: false) { input, _ in
+            Dorks.run(input)
         })
         tools.append(ToolSpec("reverse-ip", "Reverse IP Lookup", "Other domains hosted on the same address", icon: "square.stack.3d.up", .osint,
                               input: "IP address", placeholder: "93.184.216.34") { input, _ in

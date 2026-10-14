@@ -41,7 +41,7 @@ public enum FullRecon {
     private static func execute(_ rawTarget: String, _ o: FullReconOptions, _ secrets: SecretsProvider,
                                 _ cont: AsyncStream<ReconEvent>.Continuation) async {
         let target = TargetParser.stripToHost(rawTarget).lowercased()
-        var report = ReconReport(kind: "Full Recon", target: target)
+        var report = ReconReport(kind: "Full Recon", target: target, project: target)
         let ctx = ToolContext(secrets: secrets, log: { cont.yield(.log($0)) })
 
         guard IPv4.isIP(target) || TargetParser.domain(from: target) != nil else {

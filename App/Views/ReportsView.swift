@@ -2,34 +2,86 @@ import SwiftUI
 import ReconCore
 
 /// Pushed from the dashboard's navigation stack, so it does not wrap its own NavigationStack.
+/// Reports are organised into folders (projects).
 struct ReportsScreen: View {
     @EnvironmentObject private var store: SessionStore
+    @State private var query = ""
+    @State private var renaming: String?
+    @State private var renameText = ""
+    @State private var confirmDelete: String?
+
+    private var folders: [String] {
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !q.isEmpty else { return store.folders }
+        return store.folders.filter { f in
+            f.lowercased().contains(q) || store.reports(in: f).contains { $0.target.lowercased().contains(q) || $0.kind.lowercased().contains(q) }
+        }
+    }
 
     var body: some View {
         Group {
             if store.reports.isEmpty {
                 VStack(spacing: 10) {
-                    Image(systemName: "tray").font(.system(size: 44)).foregroundStyle(Theme.dim)
+                    Image(systemName: "folder").font(.system(size: 44)).foregroundStyle(Theme.dim)
                     Text("No reports yet").font(.headline)
-                    Text("Full Recon runs are saved automatically. Tool and scan results can be saved manually.")
+                    Text("Full Recon runs save automatically into a folder named after the target. Tool and scan results save into a matching folder too.")
                         .font(.caption).foregroundStyle(Theme.dim).multilineTextAlignment(.center)
                 }.padding(40)
             } else {
                 List {
-                    ForEach(store.reports) { r in
-                        NavigationLink { ReportDetailView(report: r) } label: { ReportRow(report: r) }
-                            .listRowBackground(Theme.card)
+                    ForEach(folders, id: \.self) { folder in
+                        let items = store.reports(in: folder)
+                        Section {
+                            ForEach(items) { r in
+                                NavigationLink { ReportDetailView(report: r) } label: { ReportRow(report: r) }
+                                    .listRowBackground(Theme.card)
+                                    .swipeActions(edge: .trailing) {
+                                        Button(role: .destructive) { store.delete(r) } label: { Label("Delete", systemImage: "trash") }
+                                    }
+                                    .contextMenu { moveMenu(for: r) }
+                            }
+                        } header: {
+                            HStack {
+                                Image(systemName: folder == SessionStore.unsorted ? "tray" : "folder.fill").foregroundStyle(Theme.accent)
+                                Text(folder).foregroundStyle(Theme.accent)
+                                Spacer()
+                                Text("\(items.count)").foregroundStyle(Theme.dim)
+                                Menu {
+                                    if folder != SessionStore.unsorted {
+                                        Button { renaming = folder; renameText = folder } label: { Label("Rename folder", systemImage: "pencil") }
+                                    }
+                                    Button(role: .destructive) { confirmDelete = folder } label: { Label("Delete folder", systemImage: "trash") }
+                                } label: { Image(systemName: "ellipsis.circle").foregroundStyle(Theme.dim) }
+                            }
+                        }
                     }
-                    .onDelete { store.delete(at: $0) }
                 }
                 .scrollContentBackground(.hidden)
+                .searchable(text: $query, prompt: "Search reports")
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .screenBackground()
         .navigationTitle("Reports")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { if !store.reports.isEmpty { ToolbarItem(placement: .topBarTrailing) { EditButton() } } }
+        .alert("Rename folder", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+            TextField("Folder name", text: $renameText)
+            Button("Cancel", role: .cancel) { renaming = nil }
+            Button("Rename") { if let old = renaming { store.renameFolder(old, to: renameText) }; renaming = nil }
+        }
+        .confirmationDialog("Delete this folder and all its reports?", isPresented: Binding(get: { confirmDelete != nil }, set: { if !$0 { confirmDelete = nil } }), titleVisibility: .visible) {
+            Button("Delete", role: .destructive) { if let f = confirmDelete { store.deleteFolder(f) }; confirmDelete = nil }
+        }
+    }
+
+    @ViewBuilder private func moveMenu(for r: ReconReport) -> some View {
+        Menu {
+            Button { store.move(r, to: nil) } label: { Label("Unsorted", systemImage: "tray") }
+            ForEach(store.folders.filter { $0 != SessionStore.unsorted && $0 != store.folder(of: r) }, id: \.self) { f in
+                Button { store.move(r, to: f) } label: { Label(f, systemImage: "folder") }
+            }
+            Button { store.move(r, to: r.target) } label: { Label("New: \(r.target)", systemImage: "folder.badge.plus") }
+        } label: { Label("Move to folder", systemImage: "folder") }
     }
 }
 

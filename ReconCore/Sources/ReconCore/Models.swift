@@ -98,15 +98,18 @@ public struct ReconReport: Codable, Identifiable, Sendable {
     public var finished: Date?
     public var sections: [ReportSection]
     public var findings: [Finding]
+    /// Folder/engagement this report belongs to. Optional so older saved reports still decode.
+    public var project: String?
 
     public init(kind: String, target: String, started: Date = Date(), finished: Date? = nil,
-                sections: [ReportSection] = [], findings: [Finding] = []) {
+                sections: [ReportSection] = [], findings: [Finding] = [], project: String? = nil) {
         self.kind = kind
         self.target = target
         self.started = started
         self.finished = finished
         self.sections = sections
         self.findings = findings
+        self.project = project
     }
 
     public var worstSeverity: Severity { findings.map(\.severity).max() ?? .info }
