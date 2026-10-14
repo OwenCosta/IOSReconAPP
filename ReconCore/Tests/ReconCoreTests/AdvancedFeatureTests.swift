@@ -99,6 +99,30 @@ final class AdvancedFeatureTests: XCTestCase {
         }
     }
 
+    func testParseErrorSurfacesPlainStringError() {
+        // Some local servers (notably LM Studio) return {"error": "..."} as a plain string
+        // rather than {"error": {"message": "..."}}.
+        let data = Data(#"{"error":"model not loaded"}"#.utf8)
+        XCTAssertThrowsError(try AIClient.parse(.openAI, data)) { err in
+            XCTAssertTrue("\(err)".contains("model not loaded"))
+        }
+    }
+
+    func testParseOpenAIResponseWithContentPartsArray() throws {
+        // Some OpenAI-compatible gateways mirror the Responses-API shape and send `content`
+        // as an array of parts rather than a plain string.
+        let data = Data(#"{"choices":[{"message":{"role":"assistant","content":[{"type":"text","text":"hello "},{"type":"text","text":"there"}]}}]}"#.utf8)
+        XCTAssertEqual(try AIClient.parse(.openAI, data), "hello there")
+    }
+
+    func testExtractOpenAITextHandlesStringArrayAndNil() {
+        XCTAssertEqual(AIClient.extractOpenAIText("plain"), "plain")
+        XCTAssertEqual(AIClient.extractOpenAIText([["type": "text", "text": "a"], ["type": "text", "text": "b"]]), "ab")
+        XCTAssertNil(AIClient.extractOpenAIText(nil))
+        XCTAssertNil(AIClient.extractOpenAIText(NSNull()))
+        XCTAssertNil(AIClient.extractOpenAIText([["type": "text"]]))   // no "text" key in the only part
+    }
+
     // MARK: Streaming (SSE)
 
     func testBuildWithStreamTrueSetsFlagBothShapes() throws {
@@ -146,6 +170,11 @@ final class AdvancedFeatureTests: XCTestCase {
         // The first chunk of a stream often carries only {"role":"assistant"} with no content yet.
         let payload = #"{"choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}"#
         XCTAssertNil(AIClient.parseSSEDelta(.openAI, payload: payload))
+    }
+
+    func testParseSSEDeltaOpenAIContentPartsArray() {
+        let payload = #"{"choices":[{"delta":{"content":[{"type":"text","text":"Hel"}]},"finish_reason":null}]}"#
+        XCTAssertEqual(AIClient.parseSSEDelta(.openAI, payload: payload), "Hel")
     }
 
     func testParseSSEDeltaOpenAIFinishChunkIsNil() {

@@ -19,7 +19,7 @@ struct ToolsView: View {
                     if !items.isEmpty {
                         Section {
                             ForEach(items) { spec in
-                                NavigationLink { ToolRunnerView(spec: spec) } label: { ToolRow(spec: spec) }
+                                NavigationLink { destination(for: spec) } label: { ToolRow(spec: spec) }
                                     .listRowBackground(Theme.card)
                             }
                         } header: {
@@ -32,6 +32,18 @@ struct ToolsView: View {
             .screenBackground()
             .navigationTitle("Toolkit")
             .searchable(text: $query, prompt: "Search \(tools.count) tools")
+        }
+    }
+
+    /// MITRE ATT&CK gets a dedicated browsable view (tactics → techniques → full writeup,
+    /// with live search) instead of the generic type-and-hit-Run runner, since the whole
+    /// point of a 227-technique reference is to browse it like the real site.
+    @ViewBuilder
+    private func destination(for spec: ToolSpec) -> some View {
+        if spec.id == "mitre" {
+            MitreAttackView()
+        } else {
+            ToolRunnerView(spec: spec)
         }
     }
 }

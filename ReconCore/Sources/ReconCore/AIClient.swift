@@ -79,23 +79,45 @@ public enum AIClient {
         }
     }
 
+    /// Pull a human-readable error message out of a response body's `error` field, which is
+    /// usually `{"error": {"message": "…"}}` but is a plain string on some local servers
+    /// (notably LM Studio) — `{"error": "…"}`. Returns nil if there's no error field at all.
+    static func extractErrorMessage(_ dict: [String: Any]) -> String? {
+        if let err = dict["error"] as? [String: Any] { return err["message"] as? String }
+        if let err = dict["error"] as? String, !err.isEmpty { return err }
+        return nil
+    }
+
+    /// Pull text out of an OpenAI-shape `content` field, which is a plain string on most
+    /// servers but an array of content parts (`[{"type":"text","text":"…"}, …]`) on some
+    /// OpenAI-compatible gateways that mirror the newer Responses API shape. Returns nil if
+    /// there's genuinely no text in it (e.g. empty array, or parts with no "text" key).
+    static func extractOpenAIText(_ raw: Any?) -> String? {
+        if let s = raw as? String { return s }
+        if let parts = raw as? [[String: Any]] {
+            let text = parts.compactMap { $0["text"] as? String }.joined()
+            return text.isEmpty ? nil : text
+        }
+        return nil
+    }
+
     /// Parse a completion response body for either shape → assistant text.
     public static func parse(_ shape: Shape, _ data: Data) throws -> String {
         let obj = try JSONSerialization.jsonObject(with: data)
         guard let dict = obj as? [String: Any] else { throw ReconError.parse("unexpected response") }
         // Surface API errors uniformly.
-        if let err = dict["error"] as? [String: Any], let msg = err["message"] as? String {
+        if let msg = extractErrorMessage(dict) {
             throw ReconError.network(msg)
         }
         switch shape {
         case .openAI:
             if let choices = dict["choices"] as? [[String: Any]],
                let msg = choices.first?["message"] as? [String: Any],
-               let content = msg["content"] as? String {
+               let content = extractOpenAIText(msg["content"]) {
                 return content.trimmed()
             }
             // Some servers return {text:...}
-            if let t = dict["content"] as? String { return t.trimmed() }
+            if let t = extractOpenAIText(dict["content"]) { return t.trimmed() }
             throw ReconError.parse("no content in response")
         case .anthropic:
             if let content = dict["content"] as? [[String: Any]] {
@@ -132,7 +154,7 @@ public enum AIClient {
         case .openAI:
             guard let choices = obj["choices"] as? [[String: Any]],
                   let delta = choices.first?["delta"] as? [String: Any],
-                  let content = delta["content"] as? String, !content.isEmpty else { return nil }
+                  let content = extractOpenAIText(delta["content"]), !content.isEmpty else { return nil }
             return content
         case .anthropic:
             guard obj["type"] as? String == "content_block_delta",
@@ -394,7 +416,7 @@ public enum AIClient {
     static func parseAgentResponse(_ shape: Shape, _ data: Data) throws -> AgentTurn {
         let obj = try JSONSerialization.jsonObject(with: data)
         guard let dict = obj as? [String: Any] else { throw ReconError.parse("unexpected response") }
-        if let err = dict["error"] as? [String: Any], let msg = err["message"] as? String { throw ReconError.network(msg) }
+        if let msg = extractErrorMessage(dict) { throw ReconError.network(msg) }
         switch shape {
         case .openAI:
             guard let choices = dict["choices"] as? [[String: Any]], let message = choices.first?["message"] as? [String: Any] else {
@@ -408,7 +430,7 @@ public enum AIClient {
                 }
                 if !calls.isEmpty { return .toolCalls(calls) }
             }
-            guard let content = message["content"] as? String, !content.trimmed().isEmpty else {
+            guard let content = extractOpenAIText(message["content"]), !content.trimmed().isEmpty else {
                 throw ReconError.parse("model returned an empty response")
             }
             return .text(content.trimmed())
