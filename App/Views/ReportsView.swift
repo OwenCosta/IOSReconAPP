@@ -9,6 +9,8 @@ struct ReportsScreen: View {
     @State private var renaming: String?
     @State private var renameText = ""
     @State private var confirmDelete: String?
+    @State private var creatingFolder = false
+    @State private var newFolderName = ""
 
     private var folders: [String] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
@@ -18,37 +20,58 @@ struct ReportsScreen: View {
         }
     }
 
+    private var isEmpty: Bool { store.reports.isEmpty && store.createdFolders.isEmpty }
+
     var body: some View {
         Group {
-            if store.reports.isEmpty {
+            if isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "folder").font(.system(size: 44)).foregroundStyle(Theme.dim)
                     Text("No reports yet").font(.headline)
                     Text("Full Recon runs save automatically into a folder named after the target. Tool and scan results save into a matching folder too.")
                         .font(.caption).foregroundStyle(Theme.dim).multilineTextAlignment(.center)
+                    Button { newFolderName = ""; creatingFolder = true } label: {
+                        Label("New folder", systemImage: "folder.badge.plus")
+                    }.padding(.top, 6)
                 }.padding(40)
             } else {
                 List {
                     ForEach(folders, id: \.self) { folder in
                         let items = store.reports(in: folder)
+                        let collapsed = store.isCollapsed(folder)
                         Section {
-                            ForEach(items) { r in
-                                NavigationLink { ReportDetailView(report: r) } label: { ReportRow(report: r) }
-                                    .listRowBackground(Theme.card)
-                                    .swipeActions(edge: .trailing) {
-                                        Button(role: .destructive) { store.delete(r) } label: { Label("Delete", systemImage: "trash") }
-                                    }
-                                    .contextMenu { moveMenu(for: r) }
+                            if !collapsed {
+                                ForEach(items) { r in
+                                    NavigationLink { ReportDetailView(report: r) } label: { ReportRow(report: r) }
+                                        .listRowBackground(Theme.card)
+                                        .swipeActions(edge: .trailing) {
+                                            Button(role: .destructive) { store.delete(r) } label: { Label("Delete", systemImage: "trash") }
+                                        }
+                                        .contextMenu { moveMenu(for: r) }
+                                }
+                                if items.isEmpty {
+                                    Text("Empty — move reports here, or results will land here when you name a run “\(folder)”.")
+                                        .font(.caption).foregroundStyle(Theme.dim)
+                                        .listRowBackground(Theme.card)
+                                }
                             }
                         } header: {
-                            HStack {
-                                Image(systemName: folder == SessionStore.unsorted ? "tray" : "folder.fill").foregroundStyle(Theme.accent)
-                                Text(folder).foregroundStyle(Theme.accent)
+                            HStack(spacing: 8) {
+                                Button { withAnimation { store.toggleCollapse(folder) } } label: {
+                                    Image(systemName: collapsed ? "chevron.right" : "chevron.down")
+                                        .font(.caption.weight(.bold)).foregroundStyle(Theme.dim)
+                                        .frame(width: 16)
+                                    Image(systemName: folder == SessionStore.unsorted ? "tray" : "folder.fill").foregroundStyle(Theme.accent)
+                                    Text(folder).foregroundStyle(Theme.accent)
+                                }.buttonStyle(.plain)
                                 Spacer()
                                 Text("\(items.count)").foregroundStyle(Theme.dim)
                                 Menu {
                                     if folder != SessionStore.unsorted {
                                         Button { renaming = folder; renameText = folder } label: { Label("Rename folder", systemImage: "pencil") }
+                                    }
+                                    Button { withAnimation { store.toggleCollapse(folder) } } label: {
+                                        Label(collapsed ? "Expand" : "Collapse", systemImage: collapsed ? "chevron.down" : "chevron.up")
                                     }
                                     Button(role: .destructive) { confirmDelete = folder } label: { Label("Delete folder", systemImage: "trash") }
                                 } label: { Image(systemName: "ellipsis.circle").foregroundStyle(Theme.dim) }
@@ -64,6 +87,16 @@ struct ReportsScreen: View {
         .screenBackground()
         .navigationTitle("Reports")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button { newFolderName = ""; creatingFolder = true } label: { Image(systemName: "folder.badge.plus") }
+            }
+        }
+        .alert("New folder", isPresented: $creatingFolder) {
+            TextField("Folder name", text: $newFolderName)
+            Button("Cancel", role: .cancel) { }
+            Button("Create") { store.createFolder(newFolderName) }
+        }
         .alert("Rename folder", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
             TextField("Folder name", text: $renameText)
             Button("Cancel", role: .cancel) { renaming = nil }

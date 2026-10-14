@@ -7,10 +7,19 @@ import ReconCore
 @MainActor
 final class SessionStore: ObservableObject {
     @Published private(set) var reports: [ReconReport] = []
+    /// Folders the user created explicitly (may be empty, i.e. hold no reports yet).
+    @Published private(set) var createdFolders: [String] = []
+    /// Folder names the user has collapsed in the Reports list.
+    @Published private(set) var collapsed: Set<String> = []
 
     private let url: URL = {
         let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         return dir.appendingPathComponent("reports.json")
+    }()
+
+    private let metaURL: URL = {
+        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        return dir.appendingPathComponent("folders.json")
     }()
 
     init() { load() }
@@ -45,7 +54,7 @@ final class SessionStore: ObservableObject {
         return p.isEmpty ? Self.unsorted : p
     }
 
-    /// Folder names, most-recently-updated first.
+    /// Folder names, most-recently-updated first, including empty user-created folders.
     var folders: [String] {
         var seen = [String: Date]()
         for r in reports {
@@ -53,38 +62,81 @@ final class SessionStore: ObservableObject {
             let t = r.finished ?? r.started
             if let existing = seen[f] { if t > existing { seen[f] = t } } else { seen[f] = t }
         }
-        return seen.sorted { $0.value > $1.value }.map(\.key)
+        var order = seen.sorted { $0.value > $1.value }.map(\.key)
+        // Empty created folders (no reports yet) sort to the top, newest-created first.
+        for f in createdFolders.reversed() where seen[f] == nil && f != Self.unsorted {
+            order.insert(f, at: 0)
+        }
+        return order
     }
 
     func reports(in folder: String) -> [ReconReport] {
         reports.filter { self.folder(of: $0) == folder }.sorted { ($0.finished ?? $0.started) > ($1.finished ?? $1.started) }
     }
 
+    /// Create a named folder up front (before any report is moved into it).
+    @discardableResult
+    func createFolder(_ name: String) -> String? {
+        let n = name.trimmingCharacters(in: .whitespaces)
+        guard !n.isEmpty, n != Self.unsorted else { return nil }
+        if !folders.contains(n) { createdFolders.append(n) }
+        collapsed.remove(n)
+        saveMeta()
+        return n
+    }
+
+    func isCollapsed(_ folder: String) -> Bool { collapsed.contains(folder) }
+
+    func toggleCollapse(_ folder: String) {
+        if collapsed.contains(folder) { collapsed.remove(folder) } else { collapsed.insert(folder) }
+        saveMeta()
+    }
+
     func move(_ report: ReconReport, to folder: String?) {
         guard let i = reports.firstIndex(where: { $0.id == report.id }) else { return }
         let f = folder?.trimmingCharacters(in: .whitespaces)
-        reports[i].project = (f == nil || f!.isEmpty || f == Self.unsorted) ? nil : f
+        let dest: String? = (f == nil || f!.isEmpty || f == Self.unsorted) ? nil : f
+        reports[i].project = dest
+        // Once a report lives in a folder it is no longer merely "created & empty".
+        if let d = dest { createdFolders.removeAll { $0 == d } }
         save()
+        saveMeta()
     }
 
     func renameFolder(_ old: String, to new: String) {
         let newName = new.trimmingCharacters(in: .whitespaces)
+        guard !newName.isEmpty, newName != old else { return }
+        let target: String? = (newName == Self.unsorted) ? nil : newName
         for i in reports.indices where folder(of: reports[i]) == old {
-            reports[i].project = (newName.isEmpty || newName == Self.unsorted) ? nil : newName
+            reports[i].project = target
         }
+        // Carry an empty created folder + its collapse state across the rename.
+        if let idx = createdFolders.firstIndex(of: old) {
+            if let t = target, !createdFolders.contains(t) { createdFolders[idx] = t } else { createdFolders.remove(at: idx) }
+        }
+        if collapsed.remove(old) != nil, let t = target { collapsed.insert(t) }
         save()
+        saveMeta()
     }
 
     func deleteFolder(_ name: String) {
         reports.removeAll { folder(of: $0) == name }
+        createdFolders.removeAll { $0 == name }
+        collapsed.remove(name)
         save()
+        saveMeta()
     }
 
     private func load() {
-        guard let data = try? Data(contentsOf: url) else { return }
         let dec = JSONDecoder()
         dec.dateDecodingStrategy = .iso8601
-        reports = (try? dec.decode([ReconReport].self, from: data)) ?? []
+        if let data = try? Data(contentsOf: url) {
+            reports = (try? dec.decode([ReconReport].self, from: data)) ?? []
+        }
+        if let data = try? Data(contentsOf: metaURL), let meta = try? dec.decode(FolderMeta.self, from: data) {
+            createdFolders = meta.created
+            collapsed = Set(meta.collapsed)
+        }
     }
 
     private func save() {
@@ -94,6 +146,16 @@ final class SessionStore: ObservableObject {
             try? data.write(to: url, options: [.atomic, .completeFileProtection])
         }
     }
+
+    private func saveMeta() {
+        let enc = JSONEncoder()
+        let meta = FolderMeta(created: createdFolders, collapsed: Array(collapsed))
+        if let data = try? enc.encode(meta) {
+            try? data.write(to: metaURL, options: [.atomic, .completeFileProtection])
+        }
+    }
+
+    private struct FolderMeta: Codable { var created: [String]; var collapsed: [String] }
 }
 
 // MARK: - API keys in the Keychain
