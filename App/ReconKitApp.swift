@@ -4,6 +4,7 @@ import SwiftUI
 struct ReconKitApp: App {
     @StateObject private var store = SessionStore()
     @StateObject private var notes = NotesStore()
+    @StateObject private var ssh = SSHStore()
 
     init() {
         let appearance = UINavigationBarAppearance()
@@ -26,6 +27,7 @@ struct ReconKitApp: App {
             RootView()
                 .environmentObject(store)
                 .environmentObject(notes)
+                .environmentObject(ssh)
                 .preferredColorScheme(.dark)
                 .tint(Theme.accent)
         }

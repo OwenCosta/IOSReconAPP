@@ -41,6 +41,7 @@ struct DashboardView: View {
             ScrollView {
                 VStack(spacing: 14) {
                     networkCard
+                    terminalCard
                     flagCard
                     publicCard
                     capabilityCard
@@ -59,6 +60,9 @@ struct DashboardView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     NavigationLink { NotesView() } label: { Image(systemName: "flag.fill") }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink { TerminalHomeView() } label: { Image(systemName: "terminal") }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink { ReportsScreen() } label: { Image(systemName: "tray.full") }
@@ -115,6 +119,23 @@ struct DashboardView: View {
             }
         }
         .card()
+    }
+
+    private var terminalCard: some View {
+        NavigationLink { TerminalHomeView() } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "terminal.fill").font(.title3).foregroundStyle(Theme.accent).frame(width: 26)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("SSH Terminal").font(.headline).foregroundStyle(Theme.accent)
+                    Text("Connect to your servers and run commands live — no laptop needed")
+                        .font(.caption).foregroundStyle(Theme.dim)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.dim)
+            }
+            .card()
+        }
+        .buttonStyle(.plain)
     }
 
     private var flagCard: some View {

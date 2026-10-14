@@ -8,6 +8,9 @@ options:
 packages:
   ReconCore:
     path: ReconCore
+  Citadel:
+    url: https://github.com/orlandos-nl/Citadel.git
+    exactVersion: 0.9.2
 targets:
   ReconKit:
     type: application
@@ -16,6 +19,8 @@ targets:
       - App
     dependencies:
       - package: ReconCore
+      - package: Citadel
+        product: Citadel
     settings:
       base:
         # >>> Change these two for your own Apple ID / team before running on a device <<<
