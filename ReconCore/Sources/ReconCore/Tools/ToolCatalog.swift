@@ -416,6 +416,10 @@ public enum ToolCatalog {
                               input: "Text", placeholder: "Hack the planet", multiline: true) { input, _ in
             TextFun.run(input)
         })
+        tools.append(ToolSpec("mitre", "MITRE ATT&CK", "Browse tactics & techniques with detection and mitigation", icon: "square.grid.3x3.topleft.filled", .utility,
+                              input: "Tactic / technique / keyword", placeholder: "T1059  ·  TA0006  ·  phishing", optional: true) { input, _ in
+            MitreAttack.run(input)
+        })
         tools.append(ToolSpec("cvss", "CVSS Calculator", "CVSS v3.1 base score & severity from a vector", icon: "gauge.with.dots.needle.67percent", .utility,
                               input: "CVSS vector", placeholder: "AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H") { input, _ in
             CVSS.run(input)
