@@ -6,6 +6,7 @@ struct TerminalHomeView: View {
     @EnvironmentObject private var ssh: SSHStore
     @State private var editing: SSHHost?
     @State private var creating = false
+    @State private var filesHost: SSHHost?
 
     var body: some View {
         Group {
@@ -24,9 +25,17 @@ struct TerminalHomeView: View {
                         ForEach(ssh.hosts) { host in
                             NavigationLink { SSHSessionView(host: host) } label: { hostRow(host) }
                                 .listRowBackground(Theme.card)
+                                .swipeActions(edge: .leading) {
+                                    Button { filesHost = host } label: { Label("Files", systemImage: "folder") }.tint(.indigo)
+                                }
                                 .swipeActions(edge: .trailing) {
                                     Button(role: .destructive) { ssh.delete(host) } label: { Label("Delete", systemImage: "trash") }
                                     Button { editing = host } label: { Label("Edit", systemImage: "pencil") }.tint(Theme.accent)
+                                }
+                                .contextMenu {
+                                    Button { filesHost = host } label: { Label("Browse files (SFTP)", systemImage: "folder") }
+                                    Button { editing = host } label: { Label("Edit", systemImage: "pencil") }
+                                    Button(role: .destructive) { ssh.delete(host) } label: { Label("Delete", systemImage: "trash") }
                                 }
                         }
                     } header: {
@@ -50,6 +59,9 @@ struct TerminalHomeView: View {
         }
         .sheet(isPresented: $creating) { SSHHostEditor(host: SSHHost()) }
         .sheet(item: $editing) { h in SSHHostEditor(host: h) }
+        .navigationDestination(isPresented: Binding(get: { filesHost != nil }, set: { if !$0 { filesHost = nil } })) {
+            if let h = filesHost { SFTPBrowserView(host: h) }
+        }
     }
 
     private func hostRow(_ host: SSHHost) -> some View {
@@ -183,6 +195,9 @@ struct SSHSessionView: View {
         .navigationTitle(host.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                NavigationLink { SFTPBrowserView(host: host) } label: { Image(systemName: "folder") }
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
                     Button { model.clearScreen() } label: { Label("Clear screen", systemImage: "clear") }

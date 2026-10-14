@@ -3,7 +3,6 @@ import SwiftUI
 #if canImport(Citadel)
 import Citadel
 import NIOCore
-import Crypto
 #endif
 
 /// Drives one live SSH shell: connects, streams output into `screen`, and
@@ -42,15 +41,7 @@ final class SSHTerminalModel: ObservableObject {
         let h = host
         pump = Task { [weak self] in
             do {
-                let auth = try Self.makeAuth(host: h, password: password, privateKey: privateKey, passphrase: passphrase)
-                let client = try await SSHClient.connect(
-                    host: h.host,
-                    port: h.port,
-                    authenticationMethod: auth,
-                    hostKeyValidator: .acceptAnything(),
-                    reconnect: .never,
-                    connectTimeout: .seconds(20)
-                )
+                let client = try await SSHConnect.connect(host: h, password: password, privateKey: privateKey, passphrase: passphrase)
                 await self?.setClient(client)
                 await self?.mark(.connected, note: "Connected. Opening shell…\n")
                 try await client.withTTY { inbound, outbound in
@@ -71,7 +62,7 @@ final class SSHTerminalModel: ObservableObject {
             } catch is CancellationError {
                 // user-initiated disconnect
             } catch {
-                await self?.mark(.failed(Self.describe(error)), note: "\n[error] \(Self.describe(error))\n")
+                await self?.mark(.failed(SSHConnect.describe(error)), note: "\n[error] \(SSHConnect.describe(error))\n")
             }
         }
         #else
@@ -149,38 +140,6 @@ final class SSHTerminalModel: ObservableObject {
     }
 
     // MARK: Helpers
-
-    #if canImport(Citadel)
-    private static func makeAuth(host: SSHHost, password: String?, privateKey: String?, passphrase: String?) throws -> SSHAuthenticationMethod {
-        switch host.auth {
-        case .password:
-            return .passwordBased(username: host.username, password: password ?? "")
-        case .privateKey:
-            let key = privateKey ?? ""
-            let decrypt = (passphrase?.isEmpty == false) ? Data(passphrase!.utf8) : nil
-            // OpenSSH keys declare their type in the body; try ed25519 then RSA.
-            if key.contains("ssh-ed25519") || key.lowercased().contains("ed25519") {
-                let pk = try Curve25519.Signing.PrivateKey(sshEd25519: key, decryptionKey: decrypt)
-                return .ed25519(username: host.username, privateKey: pk)
-            }
-            do {
-                let pk = try Insecure.RSA.PrivateKey(sshRsa: key, decryptionKey: decrypt)
-                return .rsa(username: host.username, privateKey: pk)
-            } catch {
-                let pk = try Curve25519.Signing.PrivateKey(sshEd25519: key, decryptionKey: decrypt)
-                return .ed25519(username: host.username, privateKey: pk)
-            }
-        }
-    }
-
-    private static func describe(_ error: Error) -> String {
-        let s = "\(error)"
-        if s.contains("authenticationFailed") || s.lowercased().contains("auth") { return "Authentication failed — check username and password/key." }
-        if s.contains("connectTimeout") || s.lowercased().contains("timed out") { return "Connection timed out — host unreachable or port closed." }
-        if s.contains("connectionClosed") { return "Connection closed by the host." }
-        return s
-    }
-    #endif
 
     /// Strip ANSI/VT escape sequences and non-printable control bytes, keeping text, \n and \t.
     static func sanitize(_ input: String) -> String {
