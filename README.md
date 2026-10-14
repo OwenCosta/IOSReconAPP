@@ -6,7 +6,7 @@ A native SwiftUI app for network reconnaissance, OSINT and authorised offensive 
 
 ## Install on your iPhone
 
-Requirements: a Mac with Xcode 16+, an iPhone on iOS 16+, a free Apple ID is enough (free profiles expire after 7 days; re-run from Xcode).
+Requirements: a Mac with Xcode 16+, an iPhone on iOS 17+ (raised from 16 by the on-device AI model's own MLX dependency), a free Apple ID is enough (free profiles expire after 7 days; re-run from Xcode).
 
 ```bash
 git clone https://github.com/OwenCosta/IOSReconAPP.git && cd IOSReconAPP

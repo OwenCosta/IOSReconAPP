@@ -1,6 +1,9 @@
 import Foundation
 import MLXLLM
 import MLXLMCommon
+import MLXHuggingFace
+import HuggingFace
+import Tokenizers
 
 /// Runs a quantised LLM entirely on-device via Apple's MLX framework — no network request, no
 /// API key, works fully offline once downloaded. The one model NetTactix offers is a 4-bit
@@ -51,7 +54,7 @@ final class LocalModelStore: ObservableObject {
         if let loadTask { return try await loadTask.value }
         status = .working
         let task = Task<ModelContainer, Error> {
-            try await LLMModelFactory.shared.loadContainer(configuration: .init(id: Self.modelID))
+            try await #huggingFaceLoadModelContainer(configuration: ModelConfiguration(id: Self.modelID))
         }
         loadTask = task
         do {
