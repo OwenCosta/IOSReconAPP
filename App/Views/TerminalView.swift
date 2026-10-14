@@ -1,4 +1,5 @@
 import SwiftUI
+import ReconCore
 
 /// Saved SSH hosts + entry to the live terminal. Pushed from the dashboard stack.
 struct TerminalHomeView: View {
