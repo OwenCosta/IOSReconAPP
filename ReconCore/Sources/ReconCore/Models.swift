@@ -88,6 +88,30 @@ public struct ToolOutput: Sendable {
         sections += other.sections
         findings += other.findings
     }
+
+    /// A plain-text rendering for feeding a tool's result back to an LLM (or logging it) —
+    /// compact, bounded in size, no UI concepts. Pure and deterministic.
+    public func renderCompact(maxChars: Int = 6000) -> String {
+        var lines: [String] = []
+        for s in sections {
+            lines.append("## \(s.title)")
+            if let n = s.note, !n.isEmpty { lines.append("(\(n))") }
+            for item in s.items {
+                lines.append(item.label.isEmpty ? item.value : "\(item.label): \(item.value)")
+            }
+        }
+        if !findings.isEmpty {
+            lines.append("## Findings")
+            for f in findings {
+                lines.append("[\(f.severity.rawValue)] \(f.title)" + (f.detail.isEmpty ? "" : " — \(f.detail)"))
+            }
+        }
+        if lines.isEmpty { return "(no output)" }
+        let text = lines.joined(separator: "\n")
+        guard text.count > maxChars else { return text }
+        let cut = text.index(text.startIndex, offsetBy: maxChars)
+        return String(text[..<cut]) + "\n… (truncated)"
+    }
 }
 
 public struct ReconReport: Codable, Identifiable, Sendable {

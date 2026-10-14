@@ -153,12 +153,20 @@ public enum AIClient {
     /// Accumulates a streamed HTTP response, splitting it on newlines into SSE events and
     /// forwarding each one's text delta — byte-safe (only decodes once a full line has
     /// arrived, so multi-byte UTF-8 never splits across network chunks).
+    ///
+    /// Two things that otherwise produce a silent blank reply, now handled:
+    /// 1. A final SSE line with no trailing newline (the connection just closes after it) —
+    ///    flushed from the buffer on completion instead of being dropped.
+    /// 2. A server that ignores `stream: true` and sends one ordinary (non-SSE) JSON body —
+    ///    if no deltas were parsed, the raw body is retried through the normal non-streaming
+    ///    parser before giving up.
     private final class StreamDelegate: NSObject, URLSessionDataDelegate, @unchecked Sendable {
         private let shape: Shape
         private let onDelta: @Sendable (String) -> Void
         var finish: (@Sendable (Result<String, Error>) -> Void)?
         private let lock = NSLock()
-        private var buffer = Data()
+        private var buffer = Data()           // undrained bytes, newline-delimited
+        private var rawBody = Data()          // everything received, for the non-SSE fallback
         private var fullText = ""
         private var statusCode = 200
         private var isErrorResponse = false
@@ -180,17 +188,28 @@ public enum AIClient {
         func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
             lock.lock()
             if isErrorResponse { errorBuffer.append(data); lock.unlock(); return }
+            rawBody.append(data)
             buffer.append(data)
             lock.unlock()
-            drainLines()
+            drainLines(includingTrailingPartial: false)
         }
 
-        private func drainLines() {
+        /// Pulls complete `\n`-terminated lines out of `buffer` and forwards any delta each
+        /// one carries. With `includingTrailingPartial: true` (end-of-stream only), also
+        /// consumes a final line that never got its trailing newline.
+        private func drainLines(includingTrailingPartial: Bool) {
             while true {
                 lock.lock()
-                guard let nl = buffer.firstIndex(of: 0x0A) else { lock.unlock(); break }
-                let lineData = buffer.subdata(in: buffer.startIndex..<nl)
-                buffer.removeSubrange(buffer.startIndex...nl)
+                let lineData: Data
+                if let nl = buffer.firstIndex(of: 0x0A) {
+                    lineData = buffer.subdata(in: buffer.startIndex..<nl)
+                    buffer.removeSubrange(buffer.startIndex...nl)
+                } else if includingTrailingPartial, !buffer.isEmpty {
+                    lineData = buffer
+                    buffer.removeAll()
+                } else {
+                    lock.unlock(); break
+                }
                 lock.unlock()
                 guard let line = String(data: lineData, encoding: .utf8),
                       let payload = AIClient.ssePayload(fromLine: line),
@@ -201,8 +220,10 @@ public enum AIClient {
         }
 
         func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+            if error == nil { drainLines(includingTrailingPartial: true) }
             lock.lock()
-            let text = fullText, code = statusCode, isErr = isErrorResponse, errData = errorBuffer
+            let text = fullText, code = statusCode, isErr = isErrorResponse
+            let errData = errorBuffer, body = rawBody
             let already = resolved; resolved = true
             lock.unlock()
             guard !already else { return }
@@ -212,7 +233,16 @@ public enum AIClient {
                 else { finish?(.failure(ReconError.http(code))) }
                 return
             }
-            finish?(.success(text))
+            if !text.isEmpty { finish?(.success(text)); return }
+            // No SSE deltas parsed — maybe the server ignored stream:true and sent a plain
+            // (non-streamed) completion body instead. Try that before giving up.
+            if !body.isEmpty, let fallback = try? AIClient.parse(shape, body), !fallback.isEmpty {
+                onDelta(fallback)
+                finish?(.success(fallback))
+                return
+            }
+            if body.isEmpty { finish?(.failure(ReconError.network("empty response from server"))) }
+            else { finish?(.failure(ReconError.parse("model returned an empty response"))) }
         }
     }
 
@@ -245,6 +275,207 @@ public enum AIClient {
             }
             session.dataTask(with: req).resume()
         }
+    }
+
+    // MARK: - Tool use ("function calling")
+
+    /// One function call the model asked to make.
+    public struct ToolCall: Sendable, Equatable {
+        public let id: String
+        public let name: String
+        public let argumentsJSON: String
+    }
+
+    /// What one agent request/response round-trip produced.
+    public enum AgentTurn: Sendable, Equatable {
+        case text(String)
+        case toolCalls([ToolCall])
+    }
+
+    /// A turn in the wire conversation for a tool-enabled request. Distinct from the plain
+    /// `Message` because assistant tool-call turns and tool-result turns don't fit a flat
+    /// role+content pair on either provider's wire format.
+    enum AgentMessage: Sendable {
+        case system(String)
+        case user(String)
+        case assistantText(String)
+        case assistantToolCalls([ToolCall])
+        case toolResults([(callID: String, text: String)])
+    }
+
+    /// The single generic function exposed to the model: call any NetTactix tool by id.
+    /// One function (rather than one per catalog entry) keeps the request small and works
+    /// reliably even with smaller/local models — the full catalog is listed in the system
+    /// prompt instead (see `ToolCatalog.directoryText()`).
+    public static let runToolName = "run_tool"
+    public static let runToolDescription =
+        "Run one NetTactix tool by its id and return its output. Pick tool_id from the tool directory given in the system prompt."
+    public static let runToolParameters: [String: Any] = [
+        "type": "object",
+        "properties": [
+            "tool_id": ["type": "string", "description": "The exact tool id from the directory, e.g. \"dns-records\"."],
+            "input": ["type": "string", "description": "The target/text to pass to the tool. Empty string if the tool takes no input."]
+        ],
+        "required": ["tool_id"]
+    ]
+
+    /// Build the HTTP request for one agent turn (tool-calling enabled). Pure → unit-testable.
+    static func buildAgentRequest(_ p: Provider, turns: [AgentMessage],
+                                  toolName: String, toolDescription: String, toolParameters: [String: Any]) throws -> Built {
+        let base = trimBase(p.baseURL)
+        switch p.shape {
+        case .openAI:
+            guard let url = URL(string: base + "/chat/completions") else { throw ReconError.invalidInput("bad base URL") }
+            var headers = ["Content-Type": "application/json"]
+            if let k = p.apiKey, !k.isEmpty { headers["Authorization"] = "Bearer \(k)" }
+            var wire: [[String: Any]] = []
+            for t in turns {
+                switch t {
+                case .system(let s): wire.append(["role": "system", "content": s])
+                case .user(let s): wire.append(["role": "user", "content": s])
+                case .assistantText(let s): wire.append(["role": "assistant", "content": s])
+                case .assistantToolCalls(let calls):
+                    wire.append([
+                        "role": "assistant", "content": NSNull(),
+                        "tool_calls": calls.map { c in
+                            ["id": c.id, "type": "function", "function": ["name": c.name, "arguments": c.argumentsJSON]]
+                        }
+                    ])
+                case .toolResults(let results):
+                    for r in results { wire.append(["role": "tool", "tool_call_id": r.callID, "content": r.text]) }
+                }
+            }
+            let payload: [String: Any] = [
+                "model": p.model, "temperature": p.temperature, "messages": wire,
+                "tools": [["type": "function", "function": ["name": toolName, "description": toolDescription, "parameters": toolParameters]]],
+                "tool_choice": "auto", "stream": false
+            ]
+            return Built(url: url, headers: headers, body: try JSONSerialization.data(withJSONObject: payload))
+        case .anthropic:
+            guard let url = URL(string: base + "/messages") else { throw ReconError.invalidInput("bad base URL") }
+            var headers = ["Content-Type": "application/json", "anthropic-version": "2023-06-01"]
+            if let k = p.apiKey, !k.isEmpty { headers["x-api-key"] = k }
+            var system = ""
+            var wire: [[String: Any]] = []
+            for t in turns {
+                switch t {
+                case .system(let s): system += (system.isEmpty ? "" : "\n") + s
+                case .user(let s): wire.append(["role": "user", "content": s])
+                case .assistantText(let s): wire.append(["role": "assistant", "content": s])
+                case .assistantToolCalls(let calls):
+                    let blocks: [[String: Any]] = calls.map { c in
+                        let input = (try? JSONSerialization.jsonObject(with: Data(c.argumentsJSON.utf8))) as? [String: Any] ?? [:]
+                        return ["type": "tool_use", "id": c.id, "name": c.name, "input": input]
+                    }
+                    wire.append(["role": "assistant", "content": blocks])
+                case .toolResults(let results):
+                    let blocks: [[String: Any]] = results.map { ["type": "tool_result", "tool_use_id": $0.callID, "content": $0.text] }
+                    wire.append(["role": "user", "content": blocks])
+                }
+            }
+            var payload: [String: Any] = [
+                "model": p.model, "max_tokens": 1024, "temperature": p.temperature, "messages": wire,
+                "tools": [["name": toolName, "description": toolDescription, "input_schema": toolParameters]],
+                "stream": false
+            ]
+            if !system.isEmpty { payload["system"] = system }
+            return Built(url: url, headers: headers, body: try JSONSerialization.data(withJSONObject: payload))
+        }
+    }
+
+    /// Parse one agent response: either the final text, or the tool call(s) the model wants
+    /// to make. Pure → unit-testable.
+    static func parseAgentResponse(_ shape: Shape, _ data: Data) throws -> AgentTurn {
+        let obj = try JSONSerialization.jsonObject(with: data)
+        guard let dict = obj as? [String: Any] else { throw ReconError.parse("unexpected response") }
+        if let err = dict["error"] as? [String: Any], let msg = err["message"] as? String { throw ReconError.network(msg) }
+        switch shape {
+        case .openAI:
+            guard let choices = dict["choices"] as? [[String: Any]], let message = choices.first?["message"] as? [String: Any] else {
+                throw ReconError.parse("no content in response")
+            }
+            if let rawCalls = message["tool_calls"] as? [[String: Any]], !rawCalls.isEmpty {
+                let calls: [ToolCall] = rawCalls.compactMap { c in
+                    guard let id = c["id"] as? String, let fn = c["function"] as? [String: Any],
+                          let name = fn["name"] as? String, let args = fn["arguments"] as? String else { return nil }
+                    return ToolCall(id: id, name: name, argumentsJSON: args)
+                }
+                if !calls.isEmpty { return .toolCalls(calls) }
+            }
+            guard let content = message["content"] as? String, !content.trimmed().isEmpty else {
+                throw ReconError.parse("model returned an empty response")
+            }
+            return .text(content.trimmed())
+        case .anthropic:
+            guard let content = dict["content"] as? [[String: Any]] else { throw ReconError.parse("no content in response") }
+            var calls: [ToolCall] = []
+            var text = ""
+            for block in content {
+                guard let type = block["type"] as? String else { continue }
+                if type == "tool_use", let id = block["id"] as? String, let name = block["name"] as? String {
+                    let input = block["input"] as? [String: Any] ?? [:]
+                    let argsData = (try? JSONSerialization.data(withJSONObject: input)) ?? Data("{}".utf8)
+                    calls.append(ToolCall(id: id, name: name, argumentsJSON: String(data: argsData, encoding: .utf8) ?? "{}"))
+                } else if type == "text", let t = block["text"] as? String {
+                    text += t
+                }
+            }
+            if !calls.isEmpty { return .toolCalls(calls) }
+            guard !text.trimmed().isEmpty else { throw ReconError.parse("model returned an empty response") }
+            return .text(text.trimmed())
+        }
+    }
+
+    /// Decode the generic `run_tool` function's arguments. Pure → unit-testable.
+    public static func decodeRunToolArguments(_ json: String) -> (toolID: String, input: String)? {
+        guard let data = json.data(using: .utf8),
+              let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let toolID = obj["tool_id"] as? String, !toolID.isEmpty else { return nil }
+        return (toolID, (obj["input"] as? String) ?? "")
+    }
+
+    /// Run a tool-enabled conversation to completion: the model may call `run_tool` any
+    /// number of times (bounded by `maxSteps`); each call is executed via `executeTool` and
+    /// fed back, until the model produces a final text reply. Returns that reply plus a log
+    /// of which tools were called, for display. Not streamed — a tool-calling turn resolves
+    /// in one block rather than token-by-token.
+    public static func agentComplete(_ p: Provider, system: String, history: [Message],
+                                     maxSteps: Int = 4, timeout: TimeInterval = 120,
+                                     executeTool: @escaping @Sendable (_ toolID: String, _ input: String) async -> String
+                                     ) async throws -> (text: String, toolLog: [(toolID: String, input: String)]) {
+        var turns: [AgentMessage] = [.system(system)]
+        for m in history {
+            if m.role == "user" { turns.append(.user(m.content)) }
+            else if m.role == "assistant" { turns.append(.assistantText(m.content)) }
+        }
+        var toolLog: [(toolID: String, input: String)] = []
+        for _ in 0..<max(1, maxSteps) {
+            let built = try buildAgentRequest(p, turns: turns, toolName: runToolName,
+                                              toolDescription: runToolDescription, toolParameters: runToolParameters)
+            let r = try await HTTP.request(built.url, method: "POST", headers: built.headers, body: built.body,
+                                           timeout: timeout, followRedirects: true, maxBytes: 4_000_000)
+            guard (200..<300).contains(r.status) else {
+                if let msg = try? parse(p.shape, r.body) { throw ReconError.network(msg) }
+                throw ReconError.http(r.status)
+            }
+            switch try parseAgentResponse(p.shape, r.body) {
+            case .text(let text):
+                return (text, toolLog)
+            case .toolCalls(let calls):
+                turns.append(.assistantToolCalls(calls))
+                var results: [(callID: String, text: String)] = []
+                for c in calls {
+                    guard let (toolID, input) = decodeRunToolArguments(c.argumentsJSON) else {
+                        results.append((c.id, "error: could not parse the tool call's arguments"))
+                        continue
+                    }
+                    toolLog.append((toolID, input))
+                    results.append((c.id, await executeTool(toolID, input)))
+                }
+                turns.append(.toolResults(results))
+            }
+        }
+        throw ReconError.unsupported("the model kept calling tools without finishing — try again or ask something simpler")
     }
 
     /// The assistant's default system prompt — a NetTactix recon/CTF co-pilot.

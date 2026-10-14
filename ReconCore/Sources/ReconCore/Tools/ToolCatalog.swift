@@ -442,4 +442,16 @@ public enum ToolCatalog {
     }
 
     public static func tools(in category: ToolCategory) -> [ToolSpec] { all.filter { $0.category == category } }
+
+    /// A compact, auto-generated directory of every tool — fed into the AI Copilot's system
+    /// prompt so it knows exactly what it can call by id. Never goes stale since it's built
+    /// from the live catalog, not maintained by hand.
+    public static func directoryText() -> String {
+        all.map { t in
+            let hint = t.inputOptional ? "optional" : t.inputLabel
+            return "\(t.id): \(t.title) — \(t.subtitle) [input: \(hint)]"
+        }.joined(separator: "\n")
+    }
+
+    public static func spec(id: String) -> ToolSpec? { all.first { $0.id == id } }
 }
