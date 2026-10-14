@@ -378,6 +378,14 @@ public enum ToolCatalog {
             if let i = g.isp { s.add("ISP", i) }
             return ToolOutput(sections: [s])
         })
+        tools.append(ToolSpec("camera", "IP Camera Recon", "Fingerprint a camera/NVR, then default creds + RTSP stream URLs", icon: "video", .network,
+                              input: "Camera IP / host", placeholder: "192.168.1.64", active: true) { input, _ in
+            await CameraRecon.run(input)
+        })
+        tools.append(ToolSpec("wifi-router", "Wi-Fi & Router Recon", "What iOS can do + router default creds & attack paths", icon: "wifi", .network,
+                              input: "Gateway IP (optional)", placeholder: "192.168.1.1", optional: true) { input, _ in
+            WiFiRecon.run(input)
+        })
 
         // MARK: Utilities
         tools.append(ToolSpec("hash-id", "Hash Identifier", "Recognise MD5/SHA/bcrypt/NTLM… with hashcat modes", icon: "number", .utility,

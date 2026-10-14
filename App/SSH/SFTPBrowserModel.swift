@@ -135,7 +135,10 @@ final class SFTPBrowserModel: ObservableObject {
                 let file = try await sftp.openFile(filePath: path, flags: .read)
                 let buf = try await file.readAll()
                 try? await file.close()
-                let data = Data(buffer: buf)
+                // Convert via NIOCore only (avoid Data(buffer:) from NIOFoundationCompat,
+                // which Xcode's explicit-module build does not expose transitively).
+                let bytes = buf.getBytes(at: buf.readerIndex, length: buf.readableBytes) ?? []
+                let data = Data(bytes)
                 let url = try await self.saveDownload(name: name, data: data)
                 await self.finishDownload(url: url)
             } catch {

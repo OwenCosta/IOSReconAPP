@@ -42,6 +42,7 @@ struct DashboardView: View {
                 VStack(spacing: 14) {
                     networkCard
                     terminalCard
+                    bluetoothCard
                     flagCard
                     publicCard
                     capabilityCard
@@ -128,6 +129,23 @@ struct DashboardView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("SSH Terminal").font(.headline).foregroundStyle(Theme.accent)
                     Text("Connect to your servers and run commands live — no laptop needed")
+                        .font(.caption).foregroundStyle(Theme.dim)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.dim)
+            }
+            .card()
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var bluetoothCard: some View {
+        NavigationLink { BLEScannerView() } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "dot.radiowaves.left.and.right").font(.title3).foregroundStyle(Theme.accent).frame(width: 26)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Bluetooth Scanner").font(.headline).foregroundStyle(Theme.accent)
+                    Text("Discover nearby BLE devices — name, vendor, services, signal")
                         .font(.caption).foregroundStyle(Theme.dim)
                 }
                 Spacer()

@@ -33,17 +33,18 @@ jobs:
           xcodegen generate
       - name: Build for iOS Simulator
         run: |
+          set +e            # do not let the failing pipeline abort before we print diagnostics
           set -o pipefail
           xcodebuild build \
             -project ReconKit.xcodeproj \
             -scheme ReconKit \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO 2>&1 | tee /tmp/xcodebuild.log | tail -n 60
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee /tmp/xcodebuild.log | tail -n 40
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
-            echo "::group::Compiler diagnostics"
-            grep -nE "error:|warning: .*(unavailable|deprecated)" /tmp/xcodebuild.log | head -n 150 || true
+            echo "::group::Compiler errors"
+            grep -nE "error:" /tmp/xcodebuild.log | head -n 100
             echo "::endgroup::"
           fi
           exit $status

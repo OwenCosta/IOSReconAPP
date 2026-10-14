@@ -50,6 +50,7 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         NSLocalNetworkUsageDescription: ReconKit scans and discovers devices on your local network (host discovery, port scanning, Bonjour).
+        NSBluetoothAlwaysUsageDescription: ReconKit scans for nearby Bluetooth Low Energy devices (advertised name, services, signal strength) for wireless reconnaissance.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
         NSBonjourServices:
