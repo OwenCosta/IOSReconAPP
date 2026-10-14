@@ -108,6 +108,17 @@ final class AgentToolUseTests: XCTestCase {
         XCTAssertEqual(toolMsg["content"] as? String, "result text")
     }
 
+    func testBuildAgentRequestOpenAIAllowToolsFalseOmitsTools() throws {
+        let p = AIClient.Provider(shape: .openAI, baseURL: "http://localhost:1234/v1", apiKey: nil, model: "m")
+        let turns: [AIClient.AgentMessage] = [.system("sys"), .user("hello")]
+        let built = try AIClient.buildAgentRequest(p, turns: turns, toolName: "run_tool",
+                                                   toolDescription: "desc", toolParameters: ["type": "object"],
+                                                   allowTools: false)
+        let json = try JSONSerialization.jsonObject(with: built.body) as! [String: Any]
+        XCTAssertNil(json["tools"])
+        XCTAssertNil(json["tool_choice"])
+    }
+
     // MARK: buildAgentRequest (Anthropic)
 
     func testBuildAgentRequestAnthropicSystemAndTools() throws {
@@ -121,6 +132,16 @@ final class AgentToolUseTests: XCTestCase {
         let messages = json["messages"] as! [[String: Any]]
         XCTAssertEqual(messages.count, 1)   // system is extracted, not a message
         XCTAssertEqual(messages[0]["role"] as? String, "user")
+    }
+
+    func testBuildAgentRequestAnthropicAllowToolsFalseOmitsTools() throws {
+        let p = AIClient.Provider(shape: .anthropic, baseURL: "https://api.anthropic.com/v1", apiKey: "k", model: "claude-3-5-sonnet")
+        let turns: [AIClient.AgentMessage] = [.system("sys"), .user("hello")]
+        let built = try AIClient.buildAgentRequest(p, turns: turns, toolName: "run_tool", toolDescription: "d",
+                                                   toolParameters: ["type": "object"], allowTools: false)
+        let json = try JSONSerialization.jsonObject(with: built.body) as! [String: Any]
+        XCTAssertNil(json["tools"])
+        XCTAssertEqual(json["system"] as? String, "sys")   // still built normally otherwise
     }
 
     func testBuildAgentRequestAnthropicToolUseRoundTrip() throws {

@@ -319,9 +319,12 @@ public enum AIClient {
         "required": ["tool_id"]
     ]
 
-    /// Build the HTTP request for one agent turn (tool-calling enabled). Pure → unit-testable.
+    /// Build the HTTP request for one agent turn. Pure → unit-testable. When `allowTools` is
+    /// false, the request omits the tool/tool_choice fields entirely so the model is physically
+    /// unable to request another tool call — used to force a plain-text final answer.
     static func buildAgentRequest(_ p: Provider, turns: [AgentMessage],
-                                  toolName: String, toolDescription: String, toolParameters: [String: Any]) throws -> Built {
+                                  toolName: String, toolDescription: String, toolParameters: [String: Any],
+                                  allowTools: Bool = true) throws -> Built {
         let base = trimBase(p.baseURL)
         switch p.shape {
         case .openAI:
@@ -345,11 +348,13 @@ public enum AIClient {
                     for r in results { wire.append(["role": "tool", "tool_call_id": r.callID, "content": r.text]) }
                 }
             }
-            let payload: [String: Any] = [
-                "model": p.model, "temperature": p.temperature, "messages": wire,
-                "tools": [["type": "function", "function": ["name": toolName, "description": toolDescription, "parameters": toolParameters]]],
-                "tool_choice": "auto", "stream": false
+            var payload: [String: Any] = [
+                "model": p.model, "temperature": p.temperature, "messages": wire, "stream": false
             ]
+            if allowTools {
+                payload["tools"] = [["type": "function", "function": ["name": toolName, "description": toolDescription, "parameters": toolParameters]]]
+                payload["tool_choice"] = "auto"
+            }
             return Built(url: url, headers: headers, body: try JSONSerialization.data(withJSONObject: payload))
         case .anthropic:
             guard let url = URL(string: base + "/messages") else { throw ReconError.invalidInput("bad base URL") }
@@ -374,10 +379,11 @@ public enum AIClient {
                 }
             }
             var payload: [String: Any] = [
-                "model": p.model, "max_tokens": 1024, "temperature": p.temperature, "messages": wire,
-                "tools": [["name": toolName, "description": toolDescription, "input_schema": toolParameters]],
-                "stream": false
+                "model": p.model, "max_tokens": 1024, "temperature": p.temperature, "messages": wire, "stream": false
             ]
+            if allowTools {
+                payload["tools"] = [["name": toolName, "description": toolDescription, "input_schema": toolParameters]]
+            }
             if !system.isEmpty { payload["system"] = system }
             return Built(url: url, headers: headers, body: try JSONSerialization.data(withJSONObject: payload))
         }
@@ -436,11 +442,15 @@ public enum AIClient {
 
     /// Run a tool-enabled conversation to completion: the model may call `run_tool` any
     /// number of times (bounded by `maxSteps`); each call is executed via `executeTool` and
-    /// fed back, until the model produces a final text reply. Returns that reply plus a log
-    /// of which tools were called, for display. Not streamed — a tool-calling turn resolves
-    /// in one block rather than token-by-token.
+    /// fed back, until the model produces a final text reply. On the last allowed step the
+    /// request is sent with tools disabled, so the model is physically unable to call another
+    /// tool and must answer in plain text — this guarantees the loop always terminates with a
+    /// real reply instead of erroring out. Each HTTP round-trip is individually bounded by
+    /// `timeout`, so a single slow request can't hang the whole conversation either. Returns
+    /// the final reply plus a log of which tools were called, for display. Not streamed — a
+    /// tool-calling turn resolves in one block rather than token-by-token.
     public static func agentComplete(_ p: Provider, system: String, history: [Message],
-                                     maxSteps: Int = 4, timeout: TimeInterval = 120,
+                                     maxSteps: Int = 6, timeout: TimeInterval = 180,
                                      executeTool: @escaping @Sendable (_ toolID: String, _ input: String) async -> String
                                      ) async throws -> (text: String, toolLog: [(toolID: String, input: String)]) {
         var turns: [AgentMessage] = [.system(system)]
@@ -449,9 +459,12 @@ public enum AIClient {
             else if m.role == "assistant" { turns.append(.assistantText(m.content)) }
         }
         var toolLog: [(toolID: String, input: String)] = []
-        for _ in 0..<max(1, maxSteps) {
+        let stepCount = max(1, maxSteps)
+        for step in 0..<stepCount {
+            let isLastStep = step == stepCount - 1
             let built = try buildAgentRequest(p, turns: turns, toolName: runToolName,
-                                              toolDescription: runToolDescription, toolParameters: runToolParameters)
+                                              toolDescription: runToolDescription, toolParameters: runToolParameters,
+                                              allowTools: !isLastStep)
             let r = try await HTTP.request(built.url, method: "POST", headers: built.headers, body: built.body,
                                            timeout: timeout, followRedirects: true, maxBytes: 4_000_000)
             guard (200..<300).contains(r.status) else {
@@ -462,6 +475,12 @@ public enum AIClient {
             case .text(let text):
                 return (text, toolLog)
             case .toolCalls(let calls):
+                // Tools were disallowed on the forced-final step, so a provider that still
+                // returns a tool call here is non-compliant — fall back gracefully rather
+                // than ever throwing a dead-end error back at the user.
+                if isLastStep {
+                    return ("I wasn't able to finish that within the allowed steps — try asking again, or something more specific.", toolLog)
+                }
                 turns.append(.assistantToolCalls(calls))
                 var results: [(callID: String, text: String)] = []
                 for c in calls {
@@ -475,7 +494,7 @@ public enum AIClient {
                 turns.append(.toolResults(results))
             }
         }
-        throw ReconError.unsupported("the model kept calling tools without finishing — try again or ask something simpler")
+        return ("I wasn't able to finish that within the allowed steps — try asking again, or something more specific.", toolLog)
     }
 
     /// The assistant's default system prompt — a NetTactix recon/CTF co-pilot.

@@ -123,19 +123,37 @@ final class AIStore: ObservableObject {
     // MARK: Tool execution bridge
 
     /// Runs one NetTactix tool by id for the Copilot and renders its output back to plain
-    /// text. Never throws — a bad id or a tool failure becomes a result the model can read
-    /// and react to, same as any other tool-calling agent. A free static function (rather
-    /// than an instance method) so it never captures the (non-Sendable) store instance when
-    /// handed to AIClient.agentComplete as a @Sendable closure.
+    /// text. Never throws — a bad id, a timeout or a tool failure all become a result the
+    /// model can read and react to, same as any other tool-calling agent. A free static
+    /// function (rather than an instance method) so it never captures the (non-Sendable)
+    /// store instance when handed to AIClient.agentComplete as a @Sendable closure.
+    ///
+    /// Wrapped in a watchdog: a single hung tool (e.g. a scan against an unreachable host)
+    /// would otherwise block the whole agent loop indefinitely, since tools don't all take
+    /// a timeout of their own. 60s is generous for any single lookup/scan step.
     static func executeTool(id: String, input: String) async -> String {
         guard let spec = ToolCatalog.spec(id: id) else {
             let known = ToolCatalog.all.map(\.id).joined(separator: ", ")
             return "error: no tool with id \"\(id)\". Known ids: \(known)"
         }
         let ctx = ToolContext(secrets: KeychainSecrets())
+        struct ToolTimedOut: Error {}
         do {
-            let output = try await spec.run(input, ctx)
-            return output.renderCompact()
+            return try await withThrowingTaskGroup(of: String.self) { group in
+                group.addTask {
+                    let output = try await spec.run(input, ctx)
+                    return output.renderCompact()
+                }
+                group.addTask {
+                    try await Task.sleep(nanoseconds: 60_000_000_000)
+                    throw ToolTimedOut()
+                }
+                let first = try await group.next()!
+                group.cancelAll()
+                return first
+            }
+        } catch is ToolTimedOut {
+            return "error running \(spec.title): timed out after 60s"
         } catch {
             return "error running \(spec.title): \((error as? ReconError)?.errorDescription ?? "\(error)")"
         }
