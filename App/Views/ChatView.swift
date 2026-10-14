@@ -168,28 +168,48 @@ struct ChatView: View {
         }
     }
 
+    /// Exact (not just short) greetings/chit-chat that never need a tool. A real request can be
+    /// short too ("scan 10.0.0.1", "T1059"), so this only matches an explicit, unambiguous
+    /// allowlist rather than any brief message — it exists purely so those messages can skip
+    /// the full tool catalog below (see `sendWithTools`), not to gate tool use in general.
+    private static let smallTalk: Set<String> = [
+        "hi", "hii", "hiya", "hello", "hey", "yo", "sup", "wassup", "what's up", "whats up",
+        "good morning", "good afternoon", "good evening", "good night",
+        "thanks", "thank you", "thx", "ty", "ok", "okay", "cool", "nice", "lol", "haha",
+        "how are you", "how's it going", "hows it going", "who are you", "what can you do", "test"
+    ]
+    private func isSmallTalk(_ text: String) -> Bool {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: .punctuationCharacters)
+            .lowercased()
+        return Self.smallTalk.contains(t)
+    }
+
     /// Tool-enabled path: the model may call NetTactix tools (bounded, logged visibly as
     /// "🔧" bubbles) before giving its final answer. Resolves in one block rather than
     /// streaming token-by-token, since the model may pause mid-turn to call a tool.
     private func sendWithTools(_ p: AIProviderConfig) {
         let runtime = ai.runtime(p)
-        let system = AIClient.defaultSystemPrompt + """
+        let lastUserText = convo.messages.last(where: { $0.role == "user" })?.content ?? ""
+
+        let system: String
+        if isSmallTalk(lastUserText) {
+            // An unambiguous greeting/chit-chat message: skip the (large) tool catalog
+            // entirely rather than relying on wording alone to keep a weak/local model from
+            // getting distracted by ~75 tool descriptions — many of them about hex/encoding —
+            // for a two-word "Hi". No catalog in context means nothing irrelevant to latch
+            // onto; the model just answers like it would with tools off.
+            system = AIClient.defaultSystemPrompt
+        } else {
+            system = AIClient.defaultSystemPrompt + """
 
 
-        You have permission to use NetTactix's own tools via the run_tool function — but a tool \
-        call is only for when the user's message needs one: running a scan or lookup, decoding/\
-        converting/generating something, or getting a real result only a tool can produce. \
-        Greetings, small talk, opinions, explanations, and anything you can already answer from \
-        what you know need no tool at all — just reply normally in plain text, the same as you \
-        would with tools turned off. Never call a tool to demonstrate it, to seem thorough, or \
-        just because one exists for the topic being discussed — only when its specific output is \
-        actually required to answer what was asked. Call at most the tools you need; most messages \
-        need zero. Available tools (id: title — subtitle [input]):
-        \(ToolCatalog.directoryText())
-
-        Call run_tool with the exact tool_id and the right input when (and only when) a tool is \
-        genuinely needed. Always give your final answer as plain text, whether or not you used one.
-        """
+            Tools: call run_tool only when this message actually needs one — a scan, lookup, \
+            decode/convert/generate, or another result only a tool can produce. Otherwise answer \
+            directly in plain text; most messages need no tool. Directory (id: title — subtitle):
+            \(ToolCatalog.directoryText())
+            """
+        }
         let history = convo.messages.dropLast().filter { $0.role == "user" || $0.role == "assistant" }
             .map { AIClient.Message(role: $0.role, content: $0.content) }
 
