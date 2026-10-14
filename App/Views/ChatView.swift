@@ -207,7 +207,10 @@ struct ChatView: View {
             directly in plain text; most messages need no tool. Directory (id: title — subtitle):
             \(ToolCatalog.directoryText())
             """
-        let history = convo.messages.dropLast().filter { $0.role == "user" || $0.role == "assistant" }
+        // No trailing placeholder is appended in this path (unlike sendStreaming), so the
+        // current user message is already the last element — do NOT dropLast() here, or the
+        // model never sees what was actually just asked and answers an empty conversation.
+        let history = convo.messages.filter { $0.role == "user" || $0.role == "assistant" }
             .map { AIClient.Message(role: $0.role, content: $0.content) }
 
         Task {
