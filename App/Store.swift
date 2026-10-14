@@ -40,6 +40,15 @@ final class SessionStore: ObservableObject {
         save()
     }
 
+    /// Rename a report's displayed target (e.g. to fix a generic/mistyped name — a hidden-input
+    /// tool's "(hidden input)" placeholder is a common case). No-ops on an empty name.
+    func rename(_ report: ReconReport, to newTarget: String) {
+        let t = newTarget.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty, let i = reports.firstIndex(where: { $0.id == report.id }) else { return }
+        reports[i].target = t
+        save()
+    }
+
     func clear() {
         reports.removeAll()
         save()

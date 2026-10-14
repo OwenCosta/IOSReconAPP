@@ -1,10 +1,14 @@
 import Foundation
 
 public enum ReportExporter {
+    // Locale-aware medium date + short time, matching the style ReportRow shows in-app
+    // (.formatted(date: .abbreviated, time: .shortened)) — previously this was a fixed POSIX
+    // "yyyy-MM-dd HH:mm:ss" format, so the same report's in-app timestamp and its exported
+    // Markdown timestamp read as two unrelated formats.
     private static let df: DateFormatter = {
         let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateStyle = .medium
+        f.timeStyle = .short
         return f
     }()
 

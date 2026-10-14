@@ -25,6 +25,11 @@ struct RootView: View {
 
 struct ScopeView: View {
     let onAccept: () -> Void
+    /// True when reused from Settings to re-read the agreement after it's already been
+    /// accepted — shows the same content with a plain "Close" instead of asking to re-agree,
+    /// and allows normal swipe-to-dismiss (the first-run gate below still blocks that).
+    var reviewOnly: Bool = false
+    @Environment(\.dismiss) private var dismiss
     @State private var checked = false
 
     var body: some View {
@@ -50,21 +55,26 @@ struct ScopeView: View {
             .font(.callout)
             .card()
 
-            Toggle(isOn: $checked) {
-                Text("I will only test systems I am authorised to assess.").font(.callout)
-            }
-            .toggleStyle(CheckToggleStyle())
+            if reviewOnly {
+                Button("Close") { dismiss() }
+                    .buttonStyle(PrimaryButtonStyle())
+            } else {
+                Toggle(isOn: $checked) {
+                    Text("I will only test systems I am authorised to assess.").font(.callout)
+                }
+                .toggleStyle(CheckToggleStyle())
 
-            Button("Continue", action: onAccept)
-                .buttonStyle(PrimaryButtonStyle())
-                .disabled(!checked)
-                .opacity(checked ? 1 : 0.4)
+                Button("Continue", action: onAccept)
+                    .buttonStyle(PrimaryButtonStyle())
+                    .disabled(!checked)
+                    .opacity(checked ? 1 : 0.4)
+            }
             Spacer()
         }
         .padding(24)
         .screenBackground()
         .preferredColorScheme(.dark)
-        .interactiveDismissDisabled()
+        .interactiveDismissDisabled(!reviewOnly)
     }
 }
 

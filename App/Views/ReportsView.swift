@@ -113,7 +113,11 @@ struct ReportsScreen: View {
             ForEach(store.folders.filter { $0 != SessionStore.unsorted && $0 != store.folder(of: r) }, id: \.self) { f in
                 Button { store.move(r, to: f) } label: { Label(f, systemImage: "folder") }
             }
-            Button { store.move(r, to: r.target) } label: { Label("New: \(r.target)", systemImage: "folder.badge.plus") }
+            // Only offered when it'd actually create something new — otherwise this is always
+            // listed regardless of context, making it easy to spawn a one-off folder per report.
+            if !r.target.isEmpty, !store.folders.contains(r.target), store.folder(of: r) != r.target {
+                Button { store.move(r, to: r.target) } label: { Label("New: \(r.target)", systemImage: "folder.badge.plus") }
+            }
         } label: { Label("Move to folder", systemImage: "folder") }
     }
 }
@@ -127,6 +131,7 @@ struct SettingsView: View {
     @State private var github = KeychainSecrets.get("github") ?? ""
     @State private var confirmClear = false
     @State private var showPaywall = false
+    @State private var reviewingScope = false
 
     var body: some View {
         ScrollView {
@@ -146,10 +151,10 @@ struct SettingsView: View {
                     Text("API keys").font(.headline).foregroundStyle(Theme.accent)
                     Text("Optional. Keys are stored in the iOS Keychain on this device only and are sent solely to the matching service.")
                         .font(.caption).foregroundStyle(Theme.dim)
-                    keyField("Shodan", "shodan", $shodan)
-                    keyField("VirusTotal", "virustotal", $virustotal)
-                    keyField("Have I Been Pwned", "hibp", $hibp)
-                    keyField("GitHub token (raises rate limit)", "github", $github)
+                    APIKeyField(title: "Shodan", name: "shodan", value: $shodan)
+                    APIKeyField(title: "VirusTotal", name: "virustotal", value: $virustotal)
+                    APIKeyField(title: "Have I Been Pwned", name: "hibp", value: $hibp)
+                    APIKeyField(title: "GitHub token (raises rate limit)", name: "github", value: $github)
                 }.card()
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -167,6 +172,13 @@ struct SettingsView: View {
                         Text("• Scanning over cellular goes through the carrier NAT and is usually heavily filtered.")
                     }.font(.caption).foregroundStyle(Theme.dim)
                 }.card()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("About").font(.headline).foregroundStyle(Theme.accent)
+                    Button { reviewingScope = true } label: {
+                        Label("Review authorised-use agreement", systemImage: "checkmark.shield")
+                    }
+                }.card()
             }
             .padding(16)
         }
@@ -177,13 +189,49 @@ struct SettingsView: View {
             Button("Delete", role: .destructive) { store.clear() }
         }
         .sheet(isPresented: $showPaywall) { PaywallView() }
+        .sheet(isPresented: $reviewingScope) { ScopeView(onAccept: {}, reviewOnly: true) }
     }
+}
 
-    private func keyField(_ title: String, _ name: String, _ binding: Binding<String>) -> some View {
+/// One API-key field: shows whether it's currently set, lets you reveal/hide the value (these
+/// aren't secrets you need obscured while typing, just awkward to verify when masked), and
+/// flashes a brief confirmation when a change is actually saved to the Keychain.
+private struct APIKeyField: View {
+    let title: String
+    let name: String
+    @Binding var value: String
+    @State private var revealed = false
+    @State private var justSaved = false
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.caption).foregroundStyle(Theme.dim)
-            TerminalField(placeholder: "not set", text: binding, secure: true)
-                .onChange(of: binding.wrappedValue) { KeychainSecrets.set($0, for: name) }
+            HStack(spacing: 6) {
+                Text(title).font(.caption).foregroundStyle(Theme.dim)
+                Text(value.isEmpty ? "Not set" : "Set")
+                    .font(.caption2.weight(.semibold))
+                    .padding(.horizontal, 6).padding(.vertical, 1)
+                    .background((value.isEmpty ? Theme.dim : Theme.accent).opacity(0.15), in: Capsule())
+                    .foregroundStyle(value.isEmpty ? Theme.dim : Theme.accent)
+                if justSaved {
+                    Label("Saved", systemImage: "checkmark").font(.caption2).foregroundStyle(Theme.accent)
+                        .transition(.opacity)
+                }
+                Spacer()
+            }
+            HStack(spacing: 8) {
+                TerminalField(placeholder: "not set", text: $value, secure: !revealed)
+                Button { revealed.toggle() } label: {
+                    Image(systemName: revealed ? "eye.slash" : "eye").foregroundStyle(Theme.dim)
+                }
+            }
+        }
+        .onChange(of: value) { newValue in
+            KeychainSecrets.set(newValue, for: name)
+            withAnimation { justSaved = true }
+            Task {
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
+                withAnimation { justSaved = false }
+            }
         }
     }
 }

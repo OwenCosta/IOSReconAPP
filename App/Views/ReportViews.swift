@@ -101,7 +101,11 @@ struct OutputView: View {
 }
 
 struct ReportDetailView: View {
-    let report: ReconReport
+    @EnvironmentObject private var store: SessionStore
+    @State var report: ReconReport
+    @State private var renaming = false
+    @State private var renameText = ""
+
     var body: some View {
         ScrollView {
             OutputView(output: ToolOutput(sections: report.sections, findings: report.findings))
@@ -113,11 +117,20 @@ struct ReportDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
+                    Button { renameText = report.target; renaming = true } label: { Label("Rename", systemImage: "pencil") }
                     ShareLink(item: ReportExporter.markdown(report)) { Label("Share Markdown", systemImage: "doc.richtext") }
                     if let data = ReportExporter.json(report), let s = String(data: data, encoding: .utf8) {
                         ShareLink(item: s) { Label("Share JSON", systemImage: "curlybraces") }
                     }
                 } label: { Image(systemName: "square.and.arrow.up") }
+            }
+        }
+        .alert("Rename report", isPresented: $renaming) {
+            TextField("Name", text: $renameText)
+            Button("Cancel", role: .cancel) { }
+            Button("Rename") {
+                store.rename(report, to: renameText)
+                report.target = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
             }
         }
     }
