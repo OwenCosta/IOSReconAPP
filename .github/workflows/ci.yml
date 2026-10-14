@@ -35,6 +35,13 @@ jobs:
         run: |
           set +e            # do not let the failing pipeline abort before we print diagnostics
           set -o pipefail
+          # Swift macro plugins (e.g. MLXHuggingFaceMacros, pulled in by the on-device AI
+          # model's mlx-swift-lm dependency) normally need a one-time interactive "Trust &
+          # Enable" click in Xcode before they're allowed to run at build time. CI has no UI
+          # for that dialog, so it hard-fails with "must be enabled before it can be used"
+          # unless these two defaults are set first, which tell Xcode to skip that prompt.
+          defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
+          defaults write com.apple.dt.Xcode IDESkipMacroFingerprintValidation -bool YES
           xcodebuild build \
             -project ReconKit.xcodeproj \
             -scheme ReconKit \
