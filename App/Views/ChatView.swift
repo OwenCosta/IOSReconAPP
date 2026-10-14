@@ -60,22 +60,44 @@ struct ChatView: View {
     /// Empty-content messages (the assistant placeholder before its first streamed token
     /// arrives) are hidden — "thinking…" covers that gap instead of an empty bubble.
     private var visibleMessages: [AIConversation.Msg] { convo.messages.filter { $0.role != "system" && !$0.content.isEmpty } }
-    private var showThinking: Bool { sending && (convo.messages.last?.content.isEmpty ?? true) }
+
+    /// True whenever a request is in flight and nothing has fully answered yet. Keeps
+    /// showing through tool-call bubbles (role "tool") since those are progress, not the
+    /// final reply — only an empty or absent assistant message (or none at all) means "wait".
+    private var showThinking: Bool {
+        guard sending, let last = convo.messages.last else { return sending }
+        if last.role == "assistant" { return last.content.isEmpty }
+        return true
+    }
 
     private func bubble(_ m: AIConversation.Msg) -> some View {
-        let isUser = m.role == "user"
-        return HStack {
-            if isUser { Spacer(minLength: 40) }
-            Text(m.content)
-                .font(.callout)
-                .foregroundStyle(isUser ? Color.black : Theme.fg)
-                .textSelection(.enabled)
-                .padding(.horizontal, 12).padding(.vertical, 8)
-                .background(isUser ? Theme.accent : Theme.card,
-                            in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
-            if !isUser { Spacer(minLength: 40) }
+        if m.role == "tool" {
+            return AnyView(
+                HStack(spacing: 6) {
+                    Image(systemName: "wrench.and.screwdriver.fill").font(.caption2)
+                    Text(m.content).font(.system(.caption2, design: .monospaced)).lineLimit(2)
+                    Spacer()
+                }
+                .foregroundStyle(Theme.accent)
+                .padding(.horizontal, 10).padding(.vertical, 6)
+                .background(Theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+            )
         }
+        let isUser = m.role == "user"
+        return AnyView(
+            HStack {
+                if isUser { Spacer(minLength: 40) }
+                Text(m.content)
+                    .font(.callout)
+                    .foregroundStyle(isUser ? Color.black : Theme.fg)
+                    .textSelection(.enabled)
+                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    .background(isUser ? Theme.accent : Theme.card,
+                                in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
+                if !isUser { Spacer(minLength: 40) }
+            }
+        )
     }
 
     private var inputBar: some View {
@@ -107,17 +129,27 @@ struct ChatView: View {
         errorText = nil
         if convo.title == "New chat" { convo.title = String(text.prefix(40)) }
         convo.messages.append(.init(role: "user", content: text))
+        ai.update(convo)
+        sending = true
 
+        if ai.toolsAllowed {
+            sendWithTools(p)
+        } else {
+            sendStreaming(p)
+        }
+    }
+
+    /// Default path: plain token-by-token streaming, no tool use.
+    private func sendStreaming(_ p: AIProviderConfig) {
         // An empty placeholder the stream fills in token-by-token; hidden from view until
         // its first delta lands (see `visibleMessages` / `showThinking`).
         let assistantID = UUID()
         convo.messages.append(.init(id: assistantID, role: "assistant", content: ""))
         ai.update(convo)
-        sending = true
 
         let runtime = ai.runtime(p)
         var wire: [AIClient.Message] = [.init(role: "system", content: AIClient.defaultSystemPrompt)]
-        wire += convo.messages.dropLast().filter { $0.role != "system" }.map { .init(role: $0.role, content: $0.content) }
+        wire += convo.messages.dropLast().filter { $0.role != "system" && $0.role != "tool" }.map { .init(role: $0.role, content: $0.content) }
 
         Task {
             do {
@@ -129,6 +161,44 @@ struct ChatView: View {
                 }
             } catch {
                 convo.messages.removeAll { $0.id == assistantID && $0.content.isEmpty }
+                errorText = (error as? ReconError)?.errorDescription ?? "\(error)"
+            }
+            ai.update(convo)
+            sending = false
+        }
+    }
+
+    /// Tool-enabled path: the model may call NetTactix tools (bounded, logged visibly as
+    /// "🔧" bubbles) before giving its final answer. Resolves in one block rather than
+    /// streaming token-by-token, since the model may pause mid-turn to call a tool.
+    private func sendWithTools(_ p: AIProviderConfig) {
+        let runtime = ai.runtime(p)
+        let system = AIClient.defaultSystemPrompt + """
+
+
+        You have permission to use NetTactix's own tools via the run_tool function. \
+        Available tools (id: title — subtitle [input]):
+        \(ToolCatalog.directoryText())
+
+        Call run_tool with the exact tool_id and the right input whenever it would help answer \
+        the user. You may call more than one tool across turns. Give your final answer as plain text.
+        """
+        let history = convo.messages.dropLast().filter { $0.role == "user" || $0.role == "assistant" }
+            .map { AIClient.Message(role: $0.role, content: $0.content) }
+
+        Task {
+            do {
+                let (finalText, _) = try await AIClient.agentComplete(runtime, system: system, history: history) { id, toolInput in
+                    let label = ToolCatalog.spec(id: id)?.title ?? id
+                    let result = await AIStore.executeTool(id: id, input: toolInput)
+                    await MainActor.run {
+                        let shown = toolInput.isEmpty ? label : "\(label)(\(toolInput.prefix(60)))"
+                        convo.messages.append(.init(role: "tool", content: "Ran: \(shown)"))
+                    }
+                    return result
+                }
+                convo.messages.append(.init(role: "assistant", content: finalText))
+            } catch {
                 errorText = (error as? ReconError)?.errorDescription ?? "\(error)"
             }
             ai.update(convo)

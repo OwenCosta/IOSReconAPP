@@ -16,6 +16,18 @@ struct AssistantHomeView: View {
             } else {
                 List {
                     Section {
+                        Toggle(isOn: $ai.toolsAllowed) {
+                            Label("Allow Copilot to use tools", systemImage: "wrench.and.screwdriver")
+                        }
+                    } footer: {
+                        Text(ai.toolsAllowed
+                             ? "On — the Copilot can run any NetTactix tool on its own to answer you, including active ones that send traffic to a target. Each tool it runs is shown in the chat."
+                             : "Off — the Copilot can only talk; it can't run scans, lookups or any other tool for you.")
+                            .font(.caption2)
+                    }
+                    .listRowBackground(Theme.card)
+
+                    Section {
                         ForEach(ai.conversations) { c in
                             NavigationLink { ChatView(conversation: c) } label: {
                                 VStack(alignment: .leading, spacing: 2) {

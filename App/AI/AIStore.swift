@@ -52,6 +52,10 @@ final class AIStore: ObservableObject {
     @Published private(set) var providers: [AIProviderConfig] = []
     @Published private(set) var conversations: [AIConversation] = []
     @Published var selectedProviderID: UUID?
+    /// The single permission gate for tool use: off by default. When on, the Copilot may
+    /// call any NetTactix tool on its own — including active ones that send real traffic —
+    /// without a confirmation per call, so the toggle itself is the "given permission".
+    @AppStorage("nettactix.ai.toolsAllowed") var toolsAllowed: Bool = false
 
     private static let service = "com.nettactix.ai"
     private let provURL: URL
@@ -115,6 +119,27 @@ final class AIStore: ObservableObject {
     }
 
     func clearConversations() { conversations.removeAll(); saveConversations() }
+
+    // MARK: Tool execution bridge
+
+    /// Runs one NetTactix tool by id for the Copilot and renders its output back to plain
+    /// text. Never throws — a bad id or a tool failure becomes a result the model can read
+    /// and react to, same as any other tool-calling agent. A free static function (rather
+    /// than an instance method) so it never captures the (non-Sendable) store instance when
+    /// handed to AIClient.agentComplete as a @Sendable closure.
+    static func executeTool(id: String, input: String) async -> String {
+        guard let spec = ToolCatalog.spec(id: id) else {
+            let known = ToolCatalog.all.map(\.id).joined(separator: ", ")
+            return "error: no tool with id \"\(id)\". Known ids: \(known)"
+        }
+        let ctx = ToolContext(secrets: KeychainSecrets())
+        do {
+            let output = try await spec.run(input, ctx)
+            return output.renderCompact()
+        } catch {
+            return "error running \(spec.title): \((error as? ReconError)?.errorDescription ?? "\(error)")"
+        }
+    }
 
     // MARK: Persistence
 
