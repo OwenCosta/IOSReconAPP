@@ -91,4 +91,87 @@ final class AdvancedFeatureTests: XCTestCase {
             XCTAssertTrue("\(err)".contains("invalid api key"))
         }
     }
+
+    // MARK: Streaming (SSE)
+
+    func testBuildWithStreamTrueSetsFlagBothShapes() throws {
+        let openAI = AIClient.Provider(shape: .openAI, baseURL: "http://localhost:1234/v1", apiKey: nil, model: "m")
+        let openAIBuilt = try AIClient.build(openAI, messages: [.init(role: "user", content: "hi")], stream: true)
+        let openAIJSON = try JSONSerialization.jsonObject(with: openAIBuilt.body) as! [String: Any]
+        XCTAssertEqual(openAIJSON["stream"] as? Bool, true)
+
+        let anthropic = AIClient.Provider(shape: .anthropic, baseURL: "https://api.anthropic.com/v1", apiKey: "k", model: "claude-3-5-sonnet")
+        let anthropicBuilt = try AIClient.build(anthropic, messages: [.init(role: "user", content: "hi")], stream: true)
+        let anthropicJSON = try JSONSerialization.jsonObject(with: anthropicBuilt.body) as! [String: Any]
+        XCTAssertEqual(anthropicJSON["stream"] as? Bool, true)
+    }
+
+    func testBuildDefaultsStreamFalse() throws {
+        let p = AIClient.Provider(shape: .openAI, baseURL: "http://localhost:1234/v1", apiKey: nil, model: "m")
+        let built = try AIClient.build(p, messages: [.init(role: "user", content: "hi")])
+        let json = try JSONSerialization.jsonObject(with: built.body) as! [String: Any]
+        XCTAssertEqual(json["stream"] as? Bool, false)
+    }
+
+    func testSSEPayloadStripsDataPrefix() {
+        XCTAssertEqual(AIClient.ssePayload(fromLine: "data: hello"), "hello")
+        XCTAssertEqual(AIClient.ssePayload(fromLine: "data:hello"), "hello")
+        XCTAssertEqual(AIClient.ssePayload(fromLine: "data:   {\"a\":1}  "), "{\"a\":1}")
+    }
+
+    func testSSEPayloadIgnoresNonDataLines() {
+        XCTAssertNil(AIClient.ssePayload(fromLine: "event: message_start"))
+        XCTAssertNil(AIClient.ssePayload(fromLine: ": this is a comment"))
+        XCTAssertNil(AIClient.ssePayload(fromLine: ""))
+        XCTAssertNil(AIClient.ssePayload(fromLine: "id: 123"))
+    }
+
+    func testParseSSEDeltaOpenAIChunk() {
+        let payload = #"{"id":"x","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Hel"},"finish_reason":null}]}"#
+        XCTAssertEqual(AIClient.parseSSEDelta(.openAI, payload: payload), "Hel")
+    }
+
+    func testParseSSEDeltaOpenAIDoneSentinelIsNil() {
+        XCTAssertNil(AIClient.parseSSEDelta(.openAI, payload: "[DONE]"))
+    }
+
+    func testParseSSEDeltaOpenAIRoleOnlyChunkIsNil() {
+        // The first chunk of a stream often carries only {"role":"assistant"} with no content yet.
+        let payload = #"{"choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}"#
+        XCTAssertNil(AIClient.parseSSEDelta(.openAI, payload: payload))
+    }
+
+    func testParseSSEDeltaOpenAIFinishChunkIsNil() {
+        let payload = #"{"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}"#
+        XCTAssertNil(AIClient.parseSSEDelta(.openAI, payload: payload))
+    }
+
+    func testParseSSEDeltaAnthropicTextDelta() {
+        let payload = #"{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hel"}}"#
+        XCTAssertEqual(AIClient.parseSSEDelta(.anthropic, payload: payload), "Hel")
+    }
+
+    func testParseSSEDeltaAnthropicNonTextEventsAreNil() {
+        XCTAssertNil(AIClient.parseSSEDelta(.anthropic, payload: #"{"type":"message_start","message":{"id":"msg_1"}}"#))
+        XCTAssertNil(AIClient.parseSSEDelta(.anthropic, payload: #"{"type":"ping"}"#))
+        XCTAssertNil(AIClient.parseSSEDelta(.anthropic, payload: #"{"type":"content_block_stop","index":0}"#))
+        XCTAssertNil(AIClient.parseSSEDelta(.anthropic, payload: #"{"type":"message_stop"}"#))
+    }
+
+    func testParseSSEDeltaGarbageIsNil() {
+        XCTAssertNil(AIClient.parseSSEDelta(.openAI, payload: "not json at all"))
+        XCTAssertNil(AIClient.parseSSEDelta(.openAI, payload: ""))
+    }
+
+    func testParseSSEDeltaAssemblesFullReplyAcrossChunks() {
+        let chunks = [
+            #"{"choices":[{"delta":{"role":"assistant"}}]}"#,
+            #"{"choices":[{"delta":{"content":"Hel"}}]}"#,
+            #"{"choices":[{"delta":{"content":"lo "}}]}"#,
+            #"{"choices":[{"delta":{"content":"world"}}]}"#,
+            "[DONE]"
+        ]
+        let full = chunks.compactMap { AIClient.parseSSEDelta(.openAI, payload: $0) }.joined()
+        XCTAssertEqual(full, "Hello world")
+    }
 }

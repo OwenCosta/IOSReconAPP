@@ -44,7 +44,7 @@ struct ChatView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 10) {
                     ForEach(visibleMessages) { m in bubble(m) }
-                    if sending {
+                    if showThinking {
                         HStack(spacing: 6) { ProgressView().controlSize(.small); Text("thinking…").font(.caption).foregroundStyle(Theme.dim) }
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -53,10 +53,14 @@ struct ChatView: View {
             }
             .onChange(of: convo.messages.count) { _ in withAnimation { proxy.scrollTo("bottom", anchor: .bottom) } }
             .onChange(of: sending) { _ in withAnimation { proxy.scrollTo("bottom", anchor: .bottom) } }
+            .onChange(of: convo.messages.last?.content) { _ in proxy.scrollTo("bottom", anchor: .bottom) }
         }
     }
 
-    private var visibleMessages: [AIConversation.Msg] { convo.messages.filter { $0.role != "system" } }
+    /// Empty-content messages (the assistant placeholder before its first streamed token
+    /// arrives) are hidden — "thinking…" covers that gap instead of an empty bubble.
+    private var visibleMessages: [AIConversation.Msg] { convo.messages.filter { $0.role != "system" && !$0.content.isEmpty } }
+    private var showThinking: Bool { sending && (convo.messages.last?.content.isEmpty ?? true) }
 
     private func bubble(_ m: AIConversation.Msg) -> some View {
         let isUser = m.role == "user"
@@ -103,21 +107,31 @@ struct ChatView: View {
         errorText = nil
         if convo.title == "New chat" { convo.title = String(text.prefix(40)) }
         convo.messages.append(.init(role: "user", content: text))
+
+        // An empty placeholder the stream fills in token-by-token; hidden from view until
+        // its first delta lands (see `visibleMessages` / `showThinking`).
+        let assistantID = UUID()
+        convo.messages.append(.init(id: assistantID, role: "assistant", content: ""))
         ai.update(convo)
         sending = true
 
         let runtime = ai.runtime(p)
         var wire: [AIClient.Message] = [.init(role: "system", content: AIClient.defaultSystemPrompt)]
-        wire += convo.messages.filter { $0.role != "system" }.map { .init(role: $0.role, content: $0.content) }
+        wire += convo.messages.dropLast().filter { $0.role != "system" }.map { .init(role: $0.role, content: $0.content) }
 
         Task {
             do {
-                let reply = try await AIClient.complete(runtime, messages: wire)
-                convo.messages.append(.init(role: "assistant", content: reply))
-                ai.update(convo)
+                _ = try await AIClient.streamComplete(runtime, messages: wire) { delta in
+                    Task { @MainActor in
+                        guard let i = convo.messages.firstIndex(where: { $0.id == assistantID }) else { return }
+                        convo.messages[i].content += delta
+                    }
+                }
             } catch {
+                convo.messages.removeAll { $0.id == assistantID && $0.content.isEmpty }
                 errorText = (error as? ReconError)?.errorDescription ?? "\(error)"
             }
+            ai.update(convo)
             sending = false
         }
     }
