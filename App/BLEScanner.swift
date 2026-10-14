@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import ReconCore
 #if canImport(CoreBluetooth)
 import CoreBluetooth
 #endif
@@ -16,6 +17,10 @@ final class BLEScanner: NSObject, ObservableObject {
         var vendor: String?
         var connectable: Bool
         var lastSeen: Date
+        var category: String
+        var categoryIcon: String
+        var isCamera: Bool
+        var note: String?
         var signalBars: Int {           // 1–4 from RSSI (higher = closer)
             if rssi < -90 { return 1 }
             if rssi < -75 { return 2 }
@@ -28,6 +33,8 @@ final class BLEScanner: NSObject, ObservableObject {
 
     @Published var devices: [Device] = []
     @Published var state: State = .unknown
+
+    var cameraCount: Int { devices.filter(\.isCamera).count }
 
     #if canImport(CoreBluetooth)
     private var central: CBCentralManager?
@@ -108,8 +115,10 @@ extension BLEScanner: CBCentralManagerDelegate {
             vendor = BLEScanner.companies[company] ?? String(format: "0x%04X", company)
         }
         let connectable = (advertisementData[CBAdvertisementDataIsConnectable] as? NSNumber)?.boolValue ?? false
+        let k = BLEClassifier.classify(name: name, vendor: vendor, serviceUUIDs: services)
         seen[id] = Device(id: id, name: name, rssi: RSSI.intValue, services: services,
-                          vendor: vendor, connectable: connectable, lastSeen: Date())
+                          vendor: vendor, connectable: connectable, lastSeen: Date(),
+                          category: k.category, categoryIcon: k.icon, isCamera: k.isCamera, note: k.note)
         publish()
     }
 }

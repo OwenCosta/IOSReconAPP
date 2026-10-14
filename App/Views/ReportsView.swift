@@ -120,15 +120,28 @@ struct ReportsScreen: View {
 
 struct SettingsView: View {
     @EnvironmentObject private var store: SessionStore
+    @EnvironmentObject private var entitlements: Entitlements
     @State private var shodan = KeychainSecrets.get("shodan") ?? ""
     @State private var virustotal = KeychainSecrets.get("virustotal") ?? ""
     @State private var hibp = KeychainSecrets.get("hibp") ?? ""
     @State private var github = KeychainSecrets.get("github") ?? ""
     @State private var confirmClear = false
+    @State private var showPaywall = false
 
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
+                Button { showPaywall = true } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: entitlements.isPro ? "crown.fill" : "crown").font(.title3).foregroundStyle(Theme.accent).frame(width: 26)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(entitlements.isPro ? "NetTactix Pro — active" : "Upgrade to NetTactix Pro").font(.headline).foregroundStyle(Theme.accent)
+                            Text(entitlements.isPro ? "Thanks for supporting OathSec" : "See Free vs Pro (\(Entitlements.proPriceText))").font(.caption).foregroundStyle(Theme.dim)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.dim)
+                    }.card()
+                }.buttonStyle(.plain)
                 VStack(alignment: .leading, spacing: 12) {
                     Text("API keys").font(.headline).foregroundStyle(Theme.accent)
                     Text("Optional. Keys are stored in the iOS Keychain on this device only and are sent solely to the matching service.")
@@ -163,6 +176,7 @@ struct SettingsView: View {
         .confirmationDialog("Delete all reports?", isPresented: $confirmClear, titleVisibility: .visible) {
             Button("Delete", role: .destructive) { store.clear() }
         }
+        .sheet(isPresented: $showPaywall) { PaywallView() }
     }
 
     private func keyField(_ title: String, _ name: String, _ binding: Binding<String>) -> some View {

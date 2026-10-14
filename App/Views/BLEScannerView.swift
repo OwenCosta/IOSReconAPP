@@ -15,20 +15,32 @@ struct BLEScannerView: View {
                 }.padding(40).frame(maxHeight: .infinity)
             } else {
                 List {
+                    if scanner.cameraCount > 0 {
+                        HStack(spacing: 8) {
+                            Image(systemName: "video.fill").foregroundStyle(Severity.high.color)
+                            Text("\(scanner.cameraCount) possible camera\(scanner.cameraCount == 1 ? "" : "s") beaconing nearby")
+                                .font(.caption.weight(.semibold)).foregroundStyle(Theme.fg)
+                        }
+                        .listRowBackground(Severity.high.color.opacity(0.15))
+                    }
                     ForEach(scanner.devices) { d in
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
-                                Image(systemName: d.connectable ? "antenna.radiowaves.left.and.right" : "dot.radiowaves.right")
-                                    .foregroundStyle(d.connectable ? Theme.accent : Theme.dim)
+                                Image(systemName: d.categoryIcon)
+                                    .foregroundStyle(d.isCamera ? Severity.high.color : (d.connectable ? Theme.accent : Theme.dim))
                                 Text(d.name).font(.body.weight(.semibold)).foregroundStyle(Theme.fg).lineLimit(1)
                                 Spacer()
                                 signal(d.signalBars)
-                                Text("\(d.rssi) dBm").font(.caption2.monospacedDigit()).foregroundStyle(Theme.dim)
+                                Text("\(d.rssi) dBm").font(.system(.caption2, design: .monospaced)).foregroundStyle(Theme.dim)
                             }
                             HStack(spacing: 8) {
-                                if let v = d.vendor { tag(v, Theme.accent) }
+                                tag(d.category, d.isCamera ? Severity.high.color : Theme.accent)
+                                if let v = d.vendor { tag(v, Theme.dim) }
                                 if d.connectable { tag("connectable", Severity.low.color) }
                                 if !d.services.isEmpty { tag("\(d.services.count) svc", Theme.dim) }
+                            }
+                            if let note = d.note {
+                                Text(note).font(.caption2).foregroundStyle(Theme.dim).lineLimit(3)
                             }
                             if !d.services.isEmpty {
                                 Text(d.services.prefix(4).joined(separator: ", "))

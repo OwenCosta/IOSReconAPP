@@ -6,6 +6,7 @@ struct ReconKitApp: App {
     @StateObject private var notes = NotesStore()
     @StateObject private var ssh = SSHStore()
     @StateObject private var ai = AIStore()
+    @StateObject private var entitlements = Entitlements()
 
     init() {
         let appearance = UINavigationBarAppearance()
@@ -30,6 +31,7 @@ struct ReconKitApp: App {
                 .environmentObject(notes)
                 .environmentObject(ssh)
                 .environmentObject(ai)
+                .environmentObject(entitlements)
                 .preferredColorScheme(.dark)
                 .tint(Theme.accent)
         }
