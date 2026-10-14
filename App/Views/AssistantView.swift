@@ -98,7 +98,8 @@ struct ProviderListView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var adding = false
     @State private var editing: AIProviderConfig?
-    @State private var showingLocal: AIProviderConfig?
+    @State private var showingLocal: LocalModelStore.ModelOption?
+    @State private var browsingCatalog = false
 
     var body: some View {
         NavigationStack {
@@ -115,7 +116,7 @@ struct ProviderListView: View {
                                             Text(p.name).foregroundStyle(Theme.fg)
                                             if p.isLocalModel { Image(systemName: "cpu").font(.caption2).foregroundStyle(Theme.dim) }
                                         }
-                                        Text(p.isLocalModel ? "On-device · \(LocalModelStore.modelSizeHint)" : "\(p.model) · \(p.baseURL)")
+                                        Text(p.isLocalModel ? "On-device · \(LocalModelStore.option(for: p.model)?.sizeHint ?? "")" : "\(p.model) · \(p.baseURL)")
                                             .font(.caption).foregroundStyle(Theme.dim).lineLimit(1)
                                     }
                                     Spacer()
@@ -127,7 +128,11 @@ struct ProviderListView: View {
                             }
                             .buttonStyle(.plain)
                             Button {
-                                if p.isLocalModel { showingLocal = p } else { editing = p }
+                                if p.isLocalModel {
+                                    showingLocal = LocalModelStore.option(for: p.model)
+                                } else {
+                                    editing = p
+                                }
                             } label: {
                                 Image(systemName: p.isLocalModel ? "info.circle" : "pencil.circle").foregroundStyle(Theme.dim)
                             }
@@ -150,22 +155,59 @@ struct ProviderListView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
                         Button { adding = true } label: { Label("Remote provider (API / local server)", systemImage: "network") }
-                        if !ai.providers.contains(where: { $0.isLocalModel }) {
-                            Button { addLocal() } label: { Label("On-device model (offline)", systemImage: "cpu") }
-                        }
+                        Button { browsingCatalog = true } label: { Label("On-device model (offline)", systemImage: "cpu") }
                     } label: { Image(systemName: "plus") }
                 }
             }
             .sheet(isPresented: $adding) { AIProviderEditor(config: AIProviderConfig()) }
             .sheet(item: $editing) { c in AIProviderEditor(config: c) }
-            .sheet(item: $showingLocal) { c in LocalModelView(config: c) }
+            .sheet(item: $showingLocal) { opt in NavigationStack { LocalModelView(option: opt) } }
+            .sheet(isPresented: $browsingCatalog) { NavigationStack { LocalModelCatalogView() } }
+        }
+    }
+}
+
+/// Browse every on-device model NetTactix offers, grouped by purpose. Tapping one opens its
+/// own download/status screen — nothing is added to your providers list just from browsing.
+struct LocalModelCatalogView: View {
+    @EnvironmentObject private var ai: AIStore
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        List {
+            ForEach(LocalModelStore.Category.allCases, id: \.self) { cat in
+                let options = LocalModelStore.catalog.filter { $0.category == cat }
+                if !options.isEmpty {
+                    Section {
+                        ForEach(options) { opt in
+                            NavigationLink { LocalModelView(option: opt) } label: { row(opt) }
+                                .listRowBackground(Theme.card)
+                        }
+                    } header: { Text(cat.rawValue).foregroundStyle(Theme.accent) }
+                }
+            }
+        }
+        .scrollContentBackground(.hidden).background(Theme.bg.ignoresSafeArea())
+        .navigationTitle("On-device models").navigationBarTitleDisplayMode(.inline)
+        .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
+    }
+
+    private func row(_ opt: LocalModelStore.ModelOption) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(opt.name).foregroundStyle(Theme.fg)
+                    if isAdded(opt) { Image(systemName: "checkmark.circle.fill").font(.caption2).foregroundStyle(Theme.accent) }
+                }
+                Text(opt.summary).font(.caption).foregroundStyle(Theme.dim).lineLimit(2)
+            }
+            Spacer()
+            Text(opt.sizeHint).font(.caption2).foregroundStyle(Theme.dim)
         }
     }
 
-    private func addLocal() {
-        let c = AIProviderConfig.localModel()
-        ai.upsert(c, key: nil)
-        showingLocal = c
+    private func isAdded(_ opt: LocalModelStore.ModelOption) -> Bool {
+        ai.providers.contains { $0.isLocalModel && $0.model == opt.id }
     }
 }
 
@@ -221,35 +263,37 @@ struct AIProviderEditor: View {
 /// Download/load status and management for the on-device (MLX) model — a real inference
 /// engine runs entirely on your phone, no network request or API key involved.
 struct LocalModelView: View {
-    let config: AIProviderConfig
+    let option: LocalModelStore.ModelOption
     @EnvironmentObject private var ai: AIStore
     @EnvironmentObject private var localModel: LocalModelStore
     @Environment(\.dismiss) private var dismiss
 
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 20) {
-                Spacer()
-                Image(systemName: "cpu").font(.system(size: 44)).foregroundStyle(Theme.accent)
-                Text(LocalModelStore.modelID).font(.system(.callout, design: .monospaced)).multilineTextAlignment(.center)
-                Text("Runs fully on this device — no network request, no API key, works offline once downloaded. \(LocalModelStore.modelSizeHint) download, cached afterwards. Needs a modern iPhone with several GB of free storage; noticeably slower and lower-quality than a cloud API.")
-                    .font(.caption).foregroundStyle(Theme.dim).multilineTextAlignment(.center)
+    private var existingProvider: AIProviderConfig? {
+        ai.providers.first { $0.isLocalModel && $0.model == option.id }
+    }
 
-                statusView
-                Spacer()
-            }
-            .padding(24)
-            .screenBackground()
-            .navigationTitle("On-device model")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
+    var body: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            Image(systemName: "cpu").font(.system(size: 44)).foregroundStyle(Theme.accent)
+            Text(option.id).font(.system(.callout, design: .monospaced)).multilineTextAlignment(.center)
+            Text("\(option.summary) Runs fully on this device — no network request, no API key, works offline once downloaded. \(option.sizeHint) download, cached afterwards. Needs a modern iPhone with several GB of free storage; noticeably slower and lower-quality than a cloud API.")
+                .font(.caption).foregroundStyle(Theme.dim).multilineTextAlignment(.center)
+
+            statusView
+            Spacer()
         }
+        .padding(24)
+        .screenBackground()
+        .navigationTitle(option.name)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
     }
 
     @ViewBuilder private var statusView: some View {
-        switch localModel.status {
+        switch localModel.status(for: option.id) {
         case .notDownloaded:
-            Button { startLoad() } label: { Label("Download & load (\(LocalModelStore.modelSizeHint))", systemImage: "arrow.down.circle") }
+            Button { startLoad() } label: { Label("Download & load (\(option.sizeHint))", systemImage: "arrow.down.circle") }
                 .buttonStyle(PrimaryButtonStyle())
         case .working:
             VStack(spacing: 8) {
@@ -260,7 +304,7 @@ struct LocalModelView: View {
         case .ready:
             VStack(spacing: 12) {
                 Label("Ready", systemImage: "checkmark.circle.fill").foregroundStyle(Theme.accent)
-                Button { ai.selectedProviderID = config.id; dismiss() } label: { Label("Use for new chats", systemImage: "checkmark") }
+                Button { useForNewChats() } label: { Label("Use for new chats", systemImage: "checkmark") }
                     .buttonStyle(PrimaryButtonStyle())
             }
         case .failed(let message):
@@ -273,6 +317,21 @@ struct LocalModelView: View {
     }
 
     private func startLoad() {
-        Task { try? await localModel.ensureLoaded() }
+        ensureProviderExists()
+        Task { try? await localModel.ensureLoaded(modelID: option.id) }
+    }
+
+    private func useForNewChats() {
+        let provider = ensureProviderExists()
+        ai.selectedProviderID = provider.id
+        dismiss()
+    }
+
+    @discardableResult
+    private func ensureProviderExists() -> AIProviderConfig {
+        if let existing = existingProvider { return existing }
+        let c = AIProviderConfig.localModel(option)
+        ai.upsert(c, key: nil)
+        return c
     }
 }

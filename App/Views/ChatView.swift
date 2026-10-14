@@ -173,7 +173,7 @@ struct ChatView: View {
         let instructions = "You write short chat titles only — no extra commentary."
         if p.isLocalModel {
             Task { @MainActor in
-                guard let raw = try? await localModel.scratchRespond(instructions: instructions, prompt: prompt) else { return }
+                guard let raw = try? await localModel.scratchRespond(modelID: p.model, instructions: instructions, prompt: prompt) else { return }
                 applyGeneratedTitle(raw)
             }
         } else {
@@ -237,6 +237,7 @@ struct ChatView: View {
         withBackgroundTime {
             do {
                 let reply = try await localModel.respond(conversationID: conversationID,
+                                                          modelID: p.model,
                                                           system: AIClient.defaultSystemPrompt,
                                                           userMessage: lastUser)
                 convo.messages.append(.init(role: "assistant", content: reply))

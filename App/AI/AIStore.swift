@@ -24,11 +24,11 @@ struct AIProviderConfig: Identifiable, Codable, Equatable {
                !model.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
-    static func localModel() -> AIProviderConfig {
+    static func localModel(_ option: LocalModelStore.ModelOption) -> AIProviderConfig {
         var c = AIProviderConfig()
-        c.name = "On-device (offline)"
+        c.name = "\(option.name) (offline)"
         c.isLocal = true
-        c.model = LocalModelStore.modelID
+        c.model = option.id
         c.savesKey = false
         return c
     }
