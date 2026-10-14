@@ -9,8 +9,15 @@ final class AdvancedFeatureTests: XCTestCase {
         for ta in MitreAttack.tactics {
             XCTAssertFalse(MitreAttack.techniques(in: ta.id).isEmpty, "\(ta.id) \(ta.name) has no techniques")
         }
-        XCTAssertEqual(MitreAttack.tactics.count, 14)
-        XCTAssertGreaterThanOrEqual(MitreAttack.techniques.count, 50)
+        XCTAssertEqual(MitreAttack.tactics.count, 15)
+        XCTAssertGreaterThanOrEqual(MitreAttack.techniques.count, 227)
+    }
+
+    func testMitreTechniquesCanBelongToMultipleTactics() {
+        let t1078 = MitreAttack.technique("T1078")
+        XCTAssertNotNil(t1078)
+        XCTAssertGreaterThan(t1078?.tactics.count ?? 0, 1, "Valid Accounts should span several tactics")
+        XCTAssertTrue(MitreAttack.techniques(in: "TA0001").contains { $0.id == "T1078" })
     }
 
     func testMitreLookupById() {
@@ -36,7 +43,7 @@ final class AdvancedFeatureTests: XCTestCase {
         XCTAssertTrue((tactic.sections.first?.items.count ?? 0) >= 3)
         // overview
         let overview = MitreAttack.run("")
-        XCTAssertEqual(overview.sections.first?.items.count, 14)
+        XCTAssertEqual(overview.sections.first?.items.count, 15)
     }
 
     func testMitreUniqueIDs() {
