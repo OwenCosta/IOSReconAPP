@@ -176,12 +176,19 @@ struct ChatView: View {
         let system = AIClient.defaultSystemPrompt + """
 
 
-        You have permission to use NetTactix's own tools via the run_tool function. \
-        Available tools (id: title — subtitle [input]):
+        You have permission to use NetTactix's own tools via the run_tool function — but a tool \
+        call is only for when the user's message needs one: running a scan or lookup, decoding/\
+        converting/generating something, or getting a real result only a tool can produce. \
+        Greetings, small talk, opinions, explanations, and anything you can already answer from \
+        what you know need no tool at all — just reply normally in plain text, the same as you \
+        would with tools turned off. Never call a tool to demonstrate it, to seem thorough, or \
+        just because one exists for the topic being discussed — only when its specific output is \
+        actually required to answer what was asked. Call at most the tools you need; most messages \
+        need zero. Available tools (id: title — subtitle [input]):
         \(ToolCatalog.directoryText())
 
-        Call run_tool with the exact tool_id and the right input whenever it would help answer \
-        the user. You may call more than one tool across turns. Give your final answer as plain text.
+        Call run_tool with the exact tool_id and the right input when (and only when) a tool is \
+        genuinely needed. Always give your final answer as plain text, whether or not you used one.
         """
         let history = convo.messages.dropLast().filter { $0.role == "user" || $0.role == "assistant" }
             .map { AIClient.Message(role: $0.role, content: $0.content) }
