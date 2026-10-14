@@ -206,6 +206,13 @@ struct ChatView: View {
             decode/convert/generate, or another result only a tool can produce. Otherwise answer \
             directly in plain text; most messages need no tool. Directory (id: title — subtitle):
             \(ToolCatalog.directoryText())
+
+            Important: after a tool runs, the user does NOT see its output — only a small \
+            "Ran: <tool name>" line with no results. You are the only one who sees what the \
+            tool actually returned, so your final answer must state the real findings yourself \
+            (the actual values, numbers, addresses, names — whatever the tool returned), in full. \
+            Never say things like "see above", "as shown above", or "the results are displayed" — \
+            nothing is displayed except what you write.
             """
         // No trailing placeholder is appended in this path (unlike sendStreaming), so the
         // current user message is already the last element — do NOT dropLast() here, or the
