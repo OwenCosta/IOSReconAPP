@@ -37,6 +37,7 @@ struct ChatView: View {
                 if let p = provider { Text(p.model).font(.caption2).foregroundStyle(Theme.dim) }
             }
         }
+        .onAppear(perform: cleanUpOrphanedPlaceholder)
     }
 
     private var messages: some View {
@@ -121,6 +122,67 @@ struct ChatView: View {
         !sending && provider != nil && !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// Requests extra execution time from iOS for an in-flight reply so briefly backgrounding
+    /// the app (switching to check something else, a notification, the app sliding to the
+    /// background for a moment) doesn't get the request killed mid-flight. This is a real but
+    /// bounded grace period (iOS still suspends the app after its own limit, typically well
+    /// under a minute) — not indefinite background operation, which iOS doesn't allow for an
+    /// ordinary foreground app without a push-driven or background-upload architecture.
+    private func withBackgroundTime(_ body: @escaping () async -> Void) {
+        var taskID: UIBackgroundTaskIdentifier = .invalid
+        taskID = UIApplication.shared.beginBackgroundTask(withName: "nettactix.ai.reply") {
+            UIApplication.shared.endBackgroundTask(taskID)
+            taskID = .invalid
+        }
+        Task {
+            await body()
+            if taskID != .invalid {
+                UIApplication.shared.endBackgroundTask(taskID)
+                taskID = .invalid
+            }
+        }
+    }
+
+    /// Clears out an empty assistant placeholder left behind by a reply that never finished
+    /// (e.g. the app was force-quit mid-stream) — otherwise it sits invisibly in storage
+    /// forever (visibleMessages hides empty content) and, worse, silently confuses future
+    /// history if ever un-hidden. Safe to call any time nothing is actively sending, since a
+    /// genuinely in-progress placeholder only exists while `sending` is true in this same view.
+    private func cleanUpOrphanedPlaceholder() {
+        guard !sending else { return }
+        let before = convo.messages.count
+        convo.messages.removeAll { $0.role == "assistant" && $0.content.isEmpty }
+        if convo.messages.count != before { ai.update(convo) }
+    }
+
+    /// After the first exchange, ask the model for a short, descriptive title instead of
+    /// settling for the raw truncated first message. Fire-and-forget: if the extra request
+    /// fails, times out, or the provider doesn't like it, the chat just keeps the placeholder
+    /// title set in `send()` — never blocks sending or surfaces an error of its own.
+    private func maybeGenerateTitle(_ p: AIProviderConfig) {
+        guard convo.messages.filter({ $0.role == "user" }).count == 1,
+              let firstUser = convo.messages.first(where: { $0.role == "user" })?.content,
+              !firstUser.isEmpty else { return }
+        let runtime = ai.runtime(p)
+        let prompt = """
+        Reply with ONLY a short title (3-6 words, no quotes, no trailing punctuation) summarising \
+        this chat for a conversation list:
+
+        \(firstUser.prefix(300))
+        """
+        Task { @MainActor in
+            guard let raw = try? await AIClient.complete(runtime, messages: [
+                .init(role: "system", content: "You write short chat titles only — no extra commentary."),
+                .init(role: "user", content: prompt)
+            ], timeout: 30) else { return }
+            let cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "\"'“”.!"))
+            guard !cleaned.isEmpty, cleaned.count <= 80 else { return }
+            convo.title = cleaned
+            ai.update(convo)
+        }
+    }
+
     private func send() {
         guard let p = provider else { return }
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -158,7 +220,7 @@ struct ChatView: View {
         var wire: [AIClient.Message] = [.init(role: "system", content: AIClient.defaultSystemPrompt)]
         wire += convo.messages.dropLast().filter { $0.role != "system" && $0.role != "tool" }.map { .init(role: $0.role, content: $0.content) }
 
-        Task {
+        withBackgroundTime {
             do {
                 _ = try await AIClient.streamComplete(runtime, messages: wire) { delta in
                     Task { @MainActor in
@@ -166,6 +228,7 @@ struct ChatView: View {
                         convo.messages[i].content += delta
                     }
                 }
+                maybeGenerateTitle(p)
             } catch {
                 convo.messages.removeAll { $0.id == assistantID && $0.content.isEmpty }
                 errorText = (error as? ReconError)?.errorDescription ?? "\(error)"
@@ -220,7 +283,7 @@ struct ChatView: View {
         let history = convo.messages.filter { $0.role == "user" || $0.role == "assistant" }
             .map { AIClient.Message(role: $0.role, content: $0.content) }
 
-        Task {
+        withBackgroundTime {
             do {
                 let (finalText, _) = try await AIClient.agentComplete(runtime, system: system, history: history) { id, toolInput in
                     let label = ToolCatalog.spec(id: id)?.title ?? id
@@ -232,6 +295,7 @@ struct ChatView: View {
                     return result
                 }
                 convo.messages.append(.init(role: "assistant", content: finalText))
+                maybeGenerateTitle(p)
             } catch {
                 errorText = (error as? ReconError)?.errorDescription ?? "\(error)"
             }

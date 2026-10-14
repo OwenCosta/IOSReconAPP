@@ -51,7 +51,18 @@ struct AIConversation: Identifiable, Codable, Equatable {
 final class AIStore: ObservableObject {
     @Published private(set) var providers: [AIProviderConfig] = []
     @Published private(set) var conversations: [AIConversation] = []
-    @Published var selectedProviderID: UUID?
+    /// The last-used provider, persisted across launches and reused for every new chat —
+    /// backed directly by UserDefaults (not @Published/@AppStorage) since @AppStorage on a
+    /// plain ObservableObject doesn't reliably trigger view updates; the explicit
+    /// objectWillChange.send() in the setter below does.
+    var selectedProviderID: UUID? {
+        get { UUID(uuidString: selectedProviderIDRaw) }
+        set {
+            objectWillChange.send()
+            selectedProviderIDRaw = newValue?.uuidString ?? ""
+        }
+    }
+    @AppStorage("nettactix.ai.selectedProviderID") private var selectedProviderIDRaw: String = ""
     /// The single permission gate for tool use: off by default. When on, the Copilot may
     /// call any NetTactix tool on its own — including active ones that send real traffic —
     /// without a confirmation per call, so the toggle itself is the "given permission".
@@ -66,7 +77,11 @@ final class AIStore: ObservableObject {
         provURL = dir.appendingPathComponent("ai_providers.json")
         convURL = dir.appendingPathComponent("ai_conversations.json")
         load()
-        if selectedProviderID == nil { selectedProviderID = providers.first?.id }
+        // Only fall back to the first provider if nothing was ever selected (fresh install)
+        // or the persisted id no longer matches any saved provider (e.g. it was deleted).
+        if selectedProviderID == nil || !providers.contains(where: { $0.id == selectedProviderID }) {
+            selectedProviderID = providers.first?.id
+        }
     }
 
     var selectedProvider: AIProviderConfig? { providers.first { $0.id == selectedProviderID } }

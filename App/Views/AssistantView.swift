@@ -96,22 +96,38 @@ struct ProviderListView: View {
     var body: some View {
         NavigationStack {
             List {
-                ForEach(ai.providers) { p in
-                    Button { editing = p } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(p.name).foregroundStyle(Theme.fg)
-                                Text("\(p.model) · \(p.baseURL)").font(.caption).foregroundStyle(Theme.dim).lineLimit(1)
+                Section {
+                    ForEach(ai.providers) { p in
+                        HStack(spacing: 10) {
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.15)) { ai.selectedProviderID = p.id }
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(p.name).foregroundStyle(Theme.fg)
+                                        Text("\(p.model) · \(p.baseURL)").font(.caption).foregroundStyle(Theme.dim).lineLimit(1)
+                                    }
+                                    Spacer()
+                                    if ai.selectedProviderID == p.id {
+                                        Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.accent)
+                                    }
+                                }
+                                .contentShape(Rectangle())
                             }
-                            Spacer()
-                            if ai.selectedProviderID == p.id { Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.accent) }
+                            .buttonStyle(.plain)
+                            Button { editing = p } label: {
+                                Image(systemName: "pencil.circle").foregroundStyle(Theme.dim)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .listRowBackground(Theme.card)
+                        .swipeActions {
+                            Button(role: .destructive) { ai.deleteProvider(p) } label: { Label("Delete", systemImage: "trash") }
                         }
                     }
-                    .listRowBackground(Theme.card)
-                    .swipeActions {
-                        Button(role: .destructive) { ai.deleteProvider(p) } label: { Label("Delete", systemImage: "trash") }
-                        Button { ai.selectedProviderID = p.id } label: { Label("Use", systemImage: "checkmark") }.tint(Theme.accent)
-                    }
+                } footer: {
+                    Text("Tap a provider to use it for new chats (saved — it stays selected after relaunch). Tap the pencil to edit.")
+                        .font(.caption2)
                 }
             }
             .scrollContentBackground(.hidden).background(Theme.bg.ignoresSafeArea())
