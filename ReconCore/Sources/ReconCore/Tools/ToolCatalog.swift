@@ -167,6 +167,10 @@ public enum ToolCatalog {
                               input: "First Last [:: domain]", placeholder: "John Doe :: example.com") { input, _ in
             UsernameGen.run(input)
         })
+        tools.append(ToolSpec("payload-encode", "Payload Encoder", "WAF-bypass encodings for one payload (URL, double-URL, HTML, unicode, case)", icon: "arrow.2.squarepath", .redteam,
+                              input: "Payload", placeholder: "<script>alert(1)</script>   ·   ' OR 1=1-- -", multiline: true) { input, _ in
+            PayloadEncoder.run(input)
+        })
         tools.append(ToolSpec("numbers", "Base Converter", "Decimal ⇄ hex ⇄ octal ⇄ binary ⇄ ASCII", icon: "number.square", .ctf,
                               input: "Number or text", placeholder: "0x41  ·  65  ·  hello") { input, _ in
             NumberConverter.run(input)
@@ -270,6 +274,14 @@ public enum ToolCatalog {
         tools.append(ToolSpec("web-analyze", "HTTP Security Analyzer", "Headers grade, cookies, redirects, tech stack", icon: "checkmark.shield", .web,
                               input: "URL or domain", placeholder: "https://example.com", active: true) { input, _ in
             try await WebRecon.analyze(input)
+        })
+        tools.append(ToolSpec("http-request", "HTTP Request", "Send any request (curl-style) and read the full response", icon: "paperplane", .web,
+                              input: "Request", placeholder: "POST https://api.example.com/login\nContent-Type: application/json\n\n{\"u\":\"admin\"}", active: true, multiline: true) { input, _ in
+            await HTTPRequester.run(input)
+        })
+        tools.append(ToolSpec("wordlist", "Wordlist Builder", "Harvest a page's vocabulary into a custom wordlist (CeWL-style)", icon: "text.word.spacing", .web,
+                              input: "URL [:: minLength]", placeholder: "https://example.com :: 5", active: true) { input, _ in
+            await WordlistGen.run(input)
         })
         tools.append(ToolSpec("content-discovery", "Exposed Files & Paths", "\(ContentDiscovery.probes.count) checks: .git, .env, backups, consoles", icon: "folder.badge.questionmark", .web,
                               input: "URL or domain", placeholder: "https://example.com", active: true) { input, ctx in
