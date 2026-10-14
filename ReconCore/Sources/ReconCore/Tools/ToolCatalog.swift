@@ -378,6 +378,10 @@ public enum ToolCatalog {
             if let i = g.isp { s.add("ISP", i) }
             return ToolOutput(sections: [s])
         })
+        tools.append(ToolSpec("camera-auto", "Camera Auto-Discovery", "Find cameras on this Wi-Fi automatically — WS-Discovery + mDNS, then full recon", icon: "video.badge.waveform", .network,
+                              input: "Scan seconds (optional)", placeholder: "5", active: true, optional: true) { input, _ in
+            await CameraDiscovery.run(input)
+        })
         tools.append(ToolSpec("camera", "IP Camera Recon", "Fingerprint a camera/NVR, then default creds + RTSP stream URLs", icon: "video", .network,
                               input: "Camera IP / host", placeholder: "192.168.1.64", active: true) { input, _ in
             await CameraRecon.run(input)

@@ -43,6 +43,7 @@ struct DashboardView: View {
                     networkCard
                     copilotCard
                     terminalCard
+                    cameraDiscoveryCard
                     bluetoothCard
                     flagCard
                     publicCard
@@ -147,6 +148,23 @@ struct DashboardView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("AI Copilot").font(.headline).foregroundStyle(Theme.accent)
                     Text("Chat with a local or API AI for recon, CTF & app help — saved on-device")
+                        .font(.caption).foregroundStyle(Theme.dim)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.dim)
+            }
+            .card()
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var cameraDiscoveryCard: some View {
+        NavigationLink { ToolRunnerView(spec: ToolCatalog.all.first { $0.id == "camera-auto" } ?? ToolCatalog.all[0]) } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "video.badge.waveform").font(.title3).foregroundStyle(Severity.high.color).frame(width: 26)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Camera Auto-Discovery").font(.headline).foregroundStyle(Theme.accent)
+                    Text("Find cameras on this Wi-Fi automatically — WS-Discovery + mDNS")
                         .font(.caption).foregroundStyle(Theme.dim)
                 }
                 Spacer()
