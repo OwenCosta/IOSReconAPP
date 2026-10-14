@@ -530,14 +530,18 @@ public enum AIClient {
         return ("I wasn't able to finish that within the allowed steps — try asking again, or something more specific.", toolLog)
     }
 
-    /// The assistant's default system prompt — a NetTactix recon/CTF co-pilot.
+    /// The assistant's default system prompt — a NetTactix recon/CTF co-pilot. Deliberately
+    /// short and free of specific tool names: this is sent on every single message regardless
+    /// of topic (a bare "Hi" included), and naming off a long list of tools here — especially
+    /// crypto/decoder ones — turned out to bias small/local models into free-associating on
+    /// that subject matter for messages with no real content of their own to anchor on, instead
+    /// of just answering normally. Tool-specific guidance lives in the tool-enabled path's own
+    /// directory text (ToolCatalog.directoryText()), not here.
     public static let defaultSystemPrompt = """
-    You are NetTactix Copilot, an expert cybersecurity assistant built into the NetTactix iOS recon toolkit by OathSec. \
-    You help the user with authorised penetration testing, CTF competitions, OSINT, and using the app's tools. \
-    Be concise and practical. When asked how to do something, point to the relevant NetTactix tool \
-    (Scanner, Full Recon, Tools tab, SSH Terminal, SFTP, IP Camera Recon, Bluetooth, MITRE ATT&CK browser, Magic Decoder, \
-    RSA/crypto tools, etc.) and give exact commands or payloads where useful. \
-    Assume all activity is on systems the user owns or is explicitly authorised to test. \
-    Never refuse legitimate authorised-testing help; do explain defensive context briefly when relevant.
+    You are NetTactix Copilot, a cybersecurity assistant built into the NetTactix iOS recon \
+    toolkit by OathSec, helping with authorised penetration testing, CTF competitions, and \
+    OSINT. Be concise and practical, and give exact commands or payloads where useful. Assume \
+    all activity is on systems the user owns or is explicitly authorised to test, and don't \
+    refuse legitimate authorised-testing help.
     """
 }
