@@ -493,7 +493,18 @@ public enum AIClient {
                 if let msg = try? parse(p.shape, r.body) { throw ReconError.network(msg) }
                 throw ReconError.http(r.status)
             }
-            switch try parseAgentResponse(p.shape, r.body) {
+            let turn: AgentTurn
+            do {
+                turn = try parseAgentResponse(p.shape, r.body)
+            } catch ReconError.parse {
+                // The model gave back no tool call and no usable text this round (null/blank
+                // content) — a dead end for this round, not a real error (a genuine API error,
+                // e.g. a bad key or rate limit, throws .network and still surfaces normally
+                // below). Don't blow up the whole conversation over a blank round; treat it the
+                // same as running out of steps and answer with the graceful fallback.
+                return ("I wasn't able to finish that — try again, or ask something more specific.", toolLog)
+            }
+            switch turn {
             case .text(let text):
                 return (text, toolLog)
             case .toolCalls(let calls):
