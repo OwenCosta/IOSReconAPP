@@ -42,11 +42,17 @@ jobs:
           # unless these two defaults are set first, which tell Xcode to skip that prompt.
           defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
           defaults write com.apple.dt.Xcode IDESkipMacroFingerprintValidation -bool YES
+          # 'generic/platform=iOS Simulator' builds a universal (arm64 + x86_64) simulator
+          # binary. On these Apple Silicon runners that means cross-compiling an x86_64 slice
+          # under Rosetta, and the MLXHuggingFaceMacros plugin executable (a build-time host
+          # tool, not app code) fails to run in that cross slice ("DYLD_ROOT_PATH not set for
+          # simulator program", then "produced malformed response"). Targeting one concrete
+          # arm64 simulator device builds native-arch only and avoids that broken combination.
           xcodebuild build \
             -project ReconKit.xcodeproj \
             -scheme ReconKit \
             -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
             CODE_SIGNING_ALLOWED=NO 2>&1 | tee /tmp/xcodebuild.log | tail -n 40
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
