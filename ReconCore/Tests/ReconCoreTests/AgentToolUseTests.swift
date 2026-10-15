@@ -18,7 +18,7 @@ final class AgentToolUseTests: XCTestCase {
         XCTAssertTrue(text.contains("A: 93.184.216.34"))
         XCTAssertTrue(text.contains("bare value"))
         XCTAssertTrue(text.contains("## Findings"))
-        XCTAssertTrue(text.contains("[high] Open admin panel — found at /admin"))
+        XCTAssertTrue(text.contains("[high] Open admin panel: found at /admin"))
     }
 
     func testRenderCompactEmptyOutput() {
