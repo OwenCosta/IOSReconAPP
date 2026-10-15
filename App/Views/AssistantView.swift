@@ -18,12 +18,12 @@ struct AssistantHomeView: View {
                 List {
                     Section {
                         Toggle(isOn: $ai.toolsAllowed) {
-                            Label("Allow Copilot to use tools", systemImage: "wrench.and.screwdriver")
+                            Label("Allow Assistant to use tools", systemImage: "wrench.and.screwdriver")
                         }
                     } footer: {
                         Text(ai.toolsAllowed
-                             ? "On — the Copilot can run any NetTactix tool on its own to answer you, including active ones that send traffic to a target. Each tool it runs is shown in the chat."
-                             : "Off — the Copilot can only talk; it can't run scans, lookups or any other tool for you.")
+                             ? "On: the Assistant can run any NetTactix tool on its own to answer you, including active ones that send traffic to a target. Each tool it runs is shown in the chat."
+                             : "Off: the Assistant can only talk, it can't run scans, lookups or any other tool for you.")
                             .font(.caption2)
                     }
                     .listRowBackground(Theme.card)
@@ -45,7 +45,7 @@ struct AssistantHomeView: View {
                             }
                         }
                         if ai.conversations.isEmpty {
-                            Text("No chats yet — tap New chat.").font(.caption).foregroundStyle(Theme.dim).listRowBackground(Theme.card)
+                            Text("No chats yet. Tap New chat.").font(.caption).foregroundStyle(Theme.dim).listRowBackground(Theme.card)
                         }
                     } header: { Text("Chats").foregroundStyle(Theme.accent) }
                 }
@@ -53,7 +53,7 @@ struct AssistantHomeView: View {
             }
         }
         .screenBackground()
-        .navigationTitle("Copilot")
+        .navigationTitle("Assistant")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -80,7 +80,7 @@ struct AssistantHomeView: View {
         VStack(spacing: 12) {
             Image(systemName: "sparkles").font(.system(size: 44)).foregroundStyle(Theme.accent)
             Text("Add an AI to chat with").font(.headline)
-            Text("Connect a local model (LM Studio / Ollama on your computer) or an API key (OpenAI, OpenRouter, Anthropic). It becomes your recon & CTF copilot — fully saved on-device.")
+            Text("Connect a local model (LM Studio / Ollama on your computer) or an API key (OpenAI, OpenRouter, Anthropic). It becomes your recon & CTF assistant, fully saved on-device.")
                 .font(.caption).foregroundStyle(Theme.dim).multilineTextAlignment(.center)
             Button { addingProvider = true } label: { Label("Add AI provider", systemImage: "plus") }
                 .buttonStyle(PrimaryButtonStyle()).frame(maxWidth: 260)
@@ -144,7 +144,7 @@ struct ProviderListView: View {
                         }
                     }
                 } footer: {
-                    Text("Tap a provider to use it for new chats (saved — it stays selected after relaunch). Tap the icon to edit or manage it.")
+                    Text("Tap a provider to use it for new chats (saved, it stays selected after relaunch). Tap the icon to edit or manage it.")
                         .font(.caption2)
                 }
             }
@@ -282,10 +282,10 @@ struct LocalModelView: View {
             Spacer()
             Image(systemName: "cpu").font(.system(size: 44)).foregroundStyle(Theme.accent)
             Text(option.id).font(.system(.callout, design: .monospaced)).multilineTextAlignment(.center)
-            Text("\(option.summary) Runs fully on this device — no network request, no API key, works offline once downloaded. \(option.sizeHint) download, cached afterwards. Needs a modern iPhone with several GB of free storage; noticeably slower and lower-quality than a cloud API.")
+            Text("\(option.summary) Runs fully on this device: no network request, no API key, works offline once downloaded. \(option.sizeHint) download, cached afterwards. Needs a modern iPhone with several GB of free storage; noticeably slower and lower-quality than a cloud API.")
                 .font(.caption).foregroundStyle(Theme.dim).multilineTextAlignment(.center)
             if !fitsDeviceMemory {
-                Label("This device has ≈\(Int(LocalModelStore.deviceRAMGB)) GB of RAM; this model needs roughly \(Int(LocalModelStore.recommendedRAMGB(option))) GB free to load safely and may crash the app — or make the whole phone unresponsive — if it doesn't fit.",
+                Label("This device has ≈\(Int(LocalModelStore.deviceRAMGB)) GB of RAM; this model needs roughly \(Int(LocalModelStore.recommendedRAMGB(option))) GB free to load safely and may crash the app, or make the whole phone unresponsive, if it doesn't fit.",
                       systemImage: "exclamationmark.triangle.fill")
                     .font(.caption2).foregroundStyle(Severity.high.color).multilineTextAlignment(.center)
             }
@@ -317,11 +317,11 @@ struct LocalModelView: View {
             VStack(spacing: 8) {
                 if let fraction = localModel.downloadProgress[option.id] {
                     ProgressView(value: fraction)
-                    Text("\(Int(fraction * 100))% — this can take several minutes on first run. Keep NetTactix open (even in the background) until this finishes; fully closing the app will stop it.")
+                    Text("\(Int(fraction * 100))%. This can take several minutes on first run. Keep NetTactix open (even in the background) until this finishes; fully closing the app will stop it.")
                         .font(.caption).foregroundStyle(Theme.dim).multilineTextAlignment(.center)
                 } else {
                     ProgressView()
-                    Text("Preparing — this can take several minutes on first run. Keep NetTactix open (even in the background) until this finishes; fully closing the app will stop it.")
+                    Text("Preparing. This can take several minutes on first run. Keep NetTactix open (even in the background) until this finishes; fully closing the app will stop it.")
                         .font(.caption).foregroundStyle(Theme.dim).multilineTextAlignment(.center)
                 }
                 Button(role: .destructive) { localModel.cancel(modelID: option.id) } label: { Text("Cancel") }
