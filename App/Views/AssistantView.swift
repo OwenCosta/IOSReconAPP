@@ -202,6 +202,9 @@ struct LocalModelCatalogView: View {
                 Text(opt.summary).font(.caption).foregroundStyle(Theme.dim).lineLimit(2)
             }
             Spacer()
+            if !LocalModelStore.fitsDeviceMemory(opt) {
+                Image(systemName: "exclamationmark.triangle.fill").font(.caption2).foregroundStyle(Severity.high.color)
+            }
             Text(opt.sizeHint).font(.caption2).foregroundStyle(Theme.dim)
         }
     }
@@ -267,10 +270,12 @@ struct LocalModelView: View {
     @EnvironmentObject private var ai: AIStore
     @EnvironmentObject private var localModel: LocalModelStore
     @Environment(\.dismiss) private var dismiss
+    @State private var showingMemoryWarning = false
 
     private var existingProvider: AIProviderConfig? {
         ai.providers.first { $0.isLocalModel && $0.model == option.id }
     }
+    private var fitsDeviceMemory: Bool { LocalModelStore.fitsDeviceMemory(option) }
 
     var body: some View {
         VStack(spacing: 20) {
@@ -279,6 +284,11 @@ struct LocalModelView: View {
             Text(option.id).font(.system(.callout, design: .monospaced)).multilineTextAlignment(.center)
             Text("\(option.summary) Runs fully on this device — no network request, no API key, works offline once downloaded. \(option.sizeHint) download, cached afterwards. Needs a modern iPhone with several GB of free storage; noticeably slower and lower-quality than a cloud API.")
                 .font(.caption).foregroundStyle(Theme.dim).multilineTextAlignment(.center)
+            if !fitsDeviceMemory {
+                Label("This device has ≈\(Int(LocalModelStore.deviceRAMGB)) GB of RAM; this model needs roughly \(Int(LocalModelStore.recommendedRAMGB(option))) GB free to load safely and may crash the app — or make the whole phone unresponsive — if it doesn't fit.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption2).foregroundStyle(Severity.high.color).multilineTextAlignment(.center)
+            }
 
             statusView
             Spacer()
@@ -288,18 +298,28 @@ struct LocalModelView: View {
         .navigationTitle(option.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
+        .alert("This model may be too large for this device", isPresented: $showingMemoryWarning) {
+            Button("Cancel", role: .cancel) {}
+            Button("Download anyway", role: .destructive) { startLoad() }
+        } message: {
+            Text("This device has ≈\(Int(LocalModelStore.deviceRAMGB)) GB of RAM and this model needs roughly \(Int(LocalModelStore.recommendedRAMGB(option))) GB free to load safely. Continuing may crash NetTactix or make the whole phone briefly unresponsive while it tries.")
+        }
     }
 
     @ViewBuilder private var statusView: some View {
         switch localModel.status(for: option.id) {
         case .notDownloaded:
-            Button { startLoad() } label: { Label("Download & load (\(option.sizeHint))", systemImage: "arrow.down.circle") }
+            Button {
+                if fitsDeviceMemory { startLoad() } else { showingMemoryWarning = true }
+            } label: { Label("Download & load (\(option.sizeHint))", systemImage: "arrow.down.circle") }
                 .buttonStyle(PrimaryButtonStyle())
         case .working:
             VStack(spacing: 8) {
                 ProgressView()
-                Text("Downloading / preparing — this can take several minutes on first run…")
+                Text("Downloading / preparing — this can take several minutes on first run. Keep NetTactix open (even in the background) until this finishes; fully closing the app will stop it.")
                     .font(.caption).foregroundStyle(Theme.dim).multilineTextAlignment(.center)
+                Button(role: .destructive) { localModel.cancel(modelID: option.id) } label: { Text("Cancel") }
+                    .font(.caption).buttonStyle(.plain).padding(.top, 4)
             }
         case .ready:
             VStack(spacing: 12) {
@@ -310,15 +330,31 @@ struct LocalModelView: View {
         case .failed(let message):
             VStack(spacing: 12) {
                 Label(message, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(Severity.high.color).multilineTextAlignment(.center)
-                Button { startLoad() } label: { Label("Retry", systemImage: "arrow.clockwise") }
+                Button { if fitsDeviceMemory { startLoad() } else { showingMemoryWarning = true } } label: { Label("Retry", systemImage: "arrow.clockwise") }
                     .buttonStyle(PrimaryButtonStyle())
             }
         }
     }
 
+    /// Requests extra execution time from iOS so briefly backgrounding the app (switching
+    /// away for a moment, a notification) doesn't get an in-flight download killed outright —
+    /// a real but bounded grace period, not indefinite background operation. Fully force-
+    /// quitting the app still stops it; there's no way around that without a background-
+    /// transfer architecture this third-party model downloader doesn't expose.
     private func startLoad() {
         ensureProviderExists()
-        Task { try? await localModel.ensureLoaded(modelID: option.id) }
+        var taskID: UIBackgroundTaskIdentifier = .invalid
+        taskID = UIApplication.shared.beginBackgroundTask(withName: "nettactix.ai.modelDownload") {
+            UIApplication.shared.endBackgroundTask(taskID)
+            taskID = .invalid
+        }
+        Task {
+            try? await localModel.ensureLoaded(modelID: option.id)
+            if taskID != .invalid {
+                UIApplication.shared.endBackgroundTask(taskID)
+                taskID = .invalid
+            }
+        }
     }
 
     private func useForNewChats() {
