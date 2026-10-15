@@ -107,6 +107,11 @@ final class LocalModelStore: ObservableObject {
     static func recommendedRAMGB(_ option: ModelOption) -> Double { option.approxGB * 1.3 + 1.5 }
 
     @Published private(set) var statuses: [String: Status] = [:]
+    /// 0...1 fraction for an in-flight download, keyed by model id. Only meaningful while that
+    /// model's status is .working — absent (rather than 0) before the first progress callback
+    /// arrives, since the loader reports nothing numeric during the initial config/tokenizer
+    /// fetch, and the UI falls back to an indeterminate spinner for that gap.
+    @Published private(set) var downloadProgress: [String: Double] = [:]
     private var containers: [String: ModelContainer] = [:]
     private var loadTasks: [String: Task<ModelContainer, Error>] = [:]
     private var sessions: [UUID: ChatSession] = [:]
@@ -142,8 +147,14 @@ final class LocalModelStore: ObservableObject {
         }
 
         statuses[modelID] = .working
-        let task = Task<ModelContainer, Error> {
-            let container = try await #huggingFaceLoadModelContainer(configuration: ModelConfiguration(id: modelID))
+        downloadProgress[modelID] = nil
+        let task = Task<ModelContainer, Error> { [weak self] in
+            let container = try await #huggingFaceLoadModelContainer(
+                configuration: ModelConfiguration(id: modelID)
+            ) { progress in
+                let fraction = progress.fractionCompleted
+                Task { @MainActor in self?.downloadProgress[modelID] = fraction }
+            }
             // A corrupted or partially-downloaded model can still "load" as far as MLX is
             // concerned and only fail once actually asked to generate — this tiny smoke-test
             // generation is what catches that here, before ever reporting .ready for it.
@@ -160,10 +171,12 @@ final class LocalModelStore: ObservableObject {
             let loaded = try await task.value
             containers[modelID] = loaded
             statuses[modelID] = .ready
+            downloadProgress[modelID] = nil
             loadTasks[modelID] = nil
             return loaded
         } catch {
             loadTasks[modelID] = nil
+            downloadProgress[modelID] = nil
             clearCachedFiles(for: modelID)
             let message = error is CancellationError
                 ? "Download cancelled or interrupted — nothing was kept. Tap Retry to start again."

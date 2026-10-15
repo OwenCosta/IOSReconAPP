@@ -315,9 +315,15 @@ struct LocalModelView: View {
                 .buttonStyle(PrimaryButtonStyle())
         case .working:
             VStack(spacing: 8) {
-                ProgressView()
-                Text("Downloading / preparing — this can take several minutes on first run. Keep NetTactix open (even in the background) until this finishes; fully closing the app will stop it.")
-                    .font(.caption).foregroundStyle(Theme.dim).multilineTextAlignment(.center)
+                if let fraction = localModel.downloadProgress[option.id] {
+                    ProgressView(value: fraction)
+                    Text("\(Int(fraction * 100))% — this can take several minutes on first run. Keep NetTactix open (even in the background) until this finishes; fully closing the app will stop it.")
+                        .font(.caption).foregroundStyle(Theme.dim).multilineTextAlignment(.center)
+                } else {
+                    ProgressView()
+                    Text("Preparing — this can take several minutes on first run. Keep NetTactix open (even in the background) until this finishes; fully closing the app will stop it.")
+                        .font(.caption).foregroundStyle(Theme.dim).multilineTextAlignment(.center)
+                }
                 Button(role: .destructive) { localModel.cancel(modelID: option.id) } label: { Text("Cancel") }
                     .font(.caption).buttonStyle(.plain).padding(.top, 4)
             }
