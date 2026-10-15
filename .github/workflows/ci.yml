@@ -42,22 +42,18 @@ jobs:
           # unless these two defaults are set first, which tell Xcode to skip that prompt.
           defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
           defaults write com.apple.dt.Xcode IDESkipMacroFingerprintValidation -bool YES
-          # Xcode 26's "prebuilt swift-syntax for macros" feature downloads a prebuilt macro-
-          # plugin binary instead of compiling the macro target from source, and is known to
-          # grab one built for the wrong configuration on iOS targets, producing exactly this
-          # failure: "external macro implementation type ... produced malformed response" for
-          # MLXHuggingFaceMacros. Disabling it forces Xcode to build the macro plugin itself.
           defaults write com.apple.dt.Xcode IDEPackageEnablePrebuilts -bool NO
-          # 'generic/platform=iOS Simulator' builds a universal (arm64 + x86_64) simulator
-          # binary. On these Apple Silicon runners that means cross-compiling an x86_64 slice
-          # under Rosetta, and the MLXHuggingFaceMacros plugin executable (a build-time host
-          # tool, not app code) fails to run in that cross slice ("DYLD_ROOT_PATH not set for
-          # simulator program", then "produced malformed response"). Targeting one concrete
-          # arm64 simulator device builds native-arch only and avoids that broken combination.
+          # The actual root cause of "external macro implementation type ... produced
+          # malformed response" for MLXHuggingFaceMacros: passing -sdk iphonesimulator is a
+          # *global* SDK override, so xcodebuild also compiles the macro plugin itself (a
+          # host tool that must run on macOS, never on a device/simulator) for the simulator
+          # SDK instead of macOS, and it ends up under Debug-iphonesimulator where the build
+          # system can't execute it as a host process. -destination alone keeps app targets
+          # on the simulator while letting Swift Package Manager build macro/plugin targets
+          # for their required macOS host platform, as it's supposed to.
           xcodebuild build \
             -project ReconKit.xcodeproj \
             -scheme ReconKit \
-            -sdk iphonesimulator \
             -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
             CODE_SIGNING_ALLOWED=NO 2>&1 | tee /tmp/xcodebuild.log | tail -n 40
           status=${PIPESTATUS[0]}
