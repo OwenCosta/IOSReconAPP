@@ -133,7 +133,7 @@ final class BLEScanner: NSObject, ObservableObject {
     func writeCharacteristic(service: String, char: String, hex: String, withResponse: Bool) {
         guard let p = connectedPeripheral, let c = charRefs[Self.key(service, char)] else { return }
         guard let data = Encoders.hexDecode(hex) else {
-            setChar(service, char) { $0.lastError = "Invalid hex — use pairs like 01 A4 FF" }
+            setChar(service, char) { $0.lastError = "Invalid hex. Use pairs like 01 A4 FF" }
             return
         }
         p.writeValue(data, for: c, type: withResponse ? .withResponse : .withoutResponse)

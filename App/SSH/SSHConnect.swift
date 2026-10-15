@@ -47,8 +47,8 @@ enum SSHConnect {
 
     static func describe(_ error: Error) -> String {
         let s = "\(error)"
-        if s.contains("authenticationFailed") || s.lowercased().contains("auth") { return "Authentication failed — check username and password/key." }
-        if s.contains("connectTimeout") || s.lowercased().contains("timed out") { return "Connection timed out — host unreachable or port closed." }
+        if s.contains("authenticationFailed") || s.lowercased().contains("auth") { return "Authentication failed. Check username and password/key." }
+        if s.contains("connectTimeout") || s.lowercased().contains("timed out") { return "Connection timed out. Host unreachable or port closed." }
         if s.contains("connectionClosed") { return "Connection closed by the host." }
         return s
     }

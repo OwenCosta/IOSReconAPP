@@ -49,7 +49,7 @@ struct BLEScannerView: View {
                         Button { camerasOnly = true } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "video.fill").foregroundStyle(Severity.high.color)
-                                Text("\(scanner.cameraCount) possible camera\(scanner.cameraCount == 1 ? "" : "s") nearby — tap to filter")
+                                Text("\(scanner.cameraCount) possible camera\(scanner.cameraCount == 1 ? "" : "s") nearby. Tap to filter")
                                     .font(.caption.weight(.semibold)).foregroundStyle(Theme.fg)
                             }
                         }.listRowBackground(Severity.high.color.opacity(0.15))

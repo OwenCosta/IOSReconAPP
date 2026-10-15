@@ -20,7 +20,7 @@ struct LearnView: View {
                     if query.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("The field guide").font(.headline).foregroundStyle(Theme.accent)
-                            Text("Plain-language explanations of the concepts behind every tool — \(LearnContent.termCount) terms across \(LearnContent.sections.count) topics. Search or browse.")
+                            Text("Plain-language explanations of the concepts behind every tool: \(LearnContent.termCount) terms across \(LearnContent.sections.count) topics. Search or browse.")
                                 .font(.callout).foregroundStyle(Theme.dim).fixedSize(horizontal: false, vertical: true)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)

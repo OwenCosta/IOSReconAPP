@@ -13,7 +13,7 @@ import ReconCore
 /// Needs a real Apple-silicon-class iPhone (A-series Neural Engine/GPU via Metal) with enough
 /// free storage and RAM — the larger options are genuinely heavier than any of NetTactix's other
 /// tools, and all of them are noticeably slower and lower-quality than a cloud API. Offered for
-/// when you want the Copilot to work with no network connection and no API key at all.
+/// when you want the Assistant to work with no network connection and no API key at all.
 ///
 /// Session note: MLX's ChatSession keeps its own internal conversation context, and there's no
 /// documented way to rehydrate that context from an arbitrary external message history — so
@@ -58,7 +58,7 @@ final class LocalModelStore: ObservableObject {
     /// entries here to within 1%.
     static let catalog: [ModelOption] = [
         ModelOption(id: "mlx-community/Llama-3.2-1B-Instruct-4bit", name: "Llama 3.2 1B", approxGB: 0.7, sizeHint: "≈0.7 GB",
-                    summary: "Smallest and fastest — lower quality, good for older/storage-constrained iPhones.",
+                    summary: "Smallest and fastest, with lower quality. Good for older/storage-constrained iPhones.",
                     category: .general),
         ModelOption(id: "mlx-community/Qwen2.5-1.5B-Instruct-4bit", name: "Qwen2.5 1.5B", approxGB: 0.9, sizeHint: "≈0.9 GB",
                     summary: "Small and fast, slightly better reasoning than the 1B option.",
@@ -67,19 +67,19 @@ final class LocalModelStore: ObservableObject {
                     summary: "Balanced size/quality for most phones.",
                     category: .general),
         ModelOption(id: "mlx-community/Qwen2.5-7B-Instruct-4bit", name: "Qwen2.5 7B", approxGB: 4.3, sizeHint: "≈4.3 GB",
-                    summary: "The recommended default — strong general quality for its size.",
+                    summary: "The recommended default: strong general quality for its size.",
                     category: .general),
         ModelOption(id: "mlx-community/Meta-Llama-3.1-8B-Instruct-4bit", name: "Llama 3.1 8B", approxGB: 4.5, sizeHint: "≈4.5 GB",
                     summary: "Strong general-purpose alternative to the Qwen 7B default.",
                     category: .general),
         ModelOption(id: "mlx-community/Qwen2.5-14B-Instruct-4bit", name: "Qwen2.5 14B", approxGB: 8.3, sizeHint: "≈8.3 GB",
-                    summary: "The highest-quality option offered — needs a newer iPhone with plenty of free storage and RAM; most iPhones will struggle to load this safely.",
+                    summary: "The highest-quality option offered. Needs a newer iPhone with plenty of free storage and RAM; most iPhones will struggle to load this safely.",
                     category: .general),
         ModelOption(id: "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit", name: "Qwen2.5 Coder 7B", approxGB: 4.3, sizeHint: "≈4.3 GB",
                     summary: "Tuned for code — payloads, scripts, parsing exploit output.",
                     category: .coding),
         ModelOption(id: "mlx-community/Meta-Llama-3.1-8B-Instruct-abliterated-4bit", name: "Llama 3.1 8B Abliterated", approxGB: 4.5, sizeHint: "≈4.5 GB",
-                    summary: "Refusal behaviour removed from the weights — for authorised CTF/red-team content without canned refusals. Same authorised-use terms as the rest of NetTactix apply.",
+                    summary: "Refusal behaviour removed from the weights, for authorised CTF/red-team content without canned refusals. Same authorised-use terms as the rest of NetTactix apply.",
                     category: .uncensored),
         ModelOption(id: "mlx-community/Qwen2.5-7B-Instruct-Uncensored-4bit", name: "Qwen2.5 7B Uncensored", approxGB: 4.3, sizeHint: "≈4.3 GB",
                     summary: "Fine-tuned to drop built-in refusals. Same authorised-use terms as the rest of NetTactix apply.",
@@ -163,7 +163,7 @@ final class LocalModelStore: ObservableObject {
                                      generateParameters: GenerateParameters(maxTokens: 8, temperature: 0.0))
             let probeReply = try await probe.respond(to: "Hi")
             guard !probeReply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                throw LocalModelError(message: "The model loaded but produced no output — the download may be incomplete or corrupted. Tap Retry.")
+                throw LocalModelError(message: "The model loaded but produced no output. The download may be incomplete or corrupted. Tap Retry.")
             }
             return container
         }
@@ -180,7 +180,7 @@ final class LocalModelStore: ObservableObject {
             downloadProgress[modelID] = nil
             clearCachedFiles(for: modelID)
             let message = error is CancellationError
-                ? "Download cancelled or interrupted — nothing was kept. Tap Retry to start again."
+                ? "Download cancelled or interrupted. Nothing was kept. Tap Retry to start again."
                 : error.localizedDescription
             statuses[modelID] = .failed(message)
             throw error

@@ -14,7 +14,7 @@ struct TerminalHomeView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "terminal").font(.system(size: 44)).foregroundStyle(Theme.dim)
                     Text("No saved servers").font(.headline)
-                    Text("Add an SSH server to open a live terminal on your phone — run commands, triage boxes and pivot without a laptop.")
+                    Text("Add an SSH server to open a live terminal on your phone: run commands, triage boxes and pivot without a laptop.")
                         .font(.caption).foregroundStyle(Theme.dim).multilineTextAlignment(.center)
                     Button { creating = true } label: { Label("Add server", systemImage: "plus") }
                         .buttonStyle(PrimaryButtonStyle()).frame(maxWidth: 240)
@@ -41,7 +41,7 @@ struct TerminalHomeView: View {
                     } header: {
                         Text("Servers").foregroundStyle(Theme.accent)
                     } footer: {
-                        Text("Credentials are stored only in this device's Keychain. Host keys are currently accepted unconditionally (no fingerprint is checked or remembered) — only connect to hosts and networks you trust.")
+                        Text("Credentials are stored only in this device's Keychain. Host keys are currently accepted unconditionally (no fingerprint is checked or remembered), so only connect to hosts and networks you trust.")
                             .font(.caption2).foregroundStyle(Theme.dim)
                     }
                 }

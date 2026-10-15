@@ -55,7 +55,7 @@ struct ReportsScreen: View {
                                         .contextMenu { moveMenu(for: r) }
                                 }
                                 if items.isEmpty {
-                                    Text("Empty — move reports here, or results will land here when you name a run “\(folder)”.")
+                                    Text("Empty. Move reports here, or results will land here when you name a run “\(folder)”.")
                                         .font(.caption).foregroundStyle(Theme.dim)
                                         .listRowBackground(Theme.card)
                                 }
@@ -171,7 +171,7 @@ struct SettingsView: View {
                     HStack(spacing: 12) {
                         Image(systemName: entitlements.isPro ? "crown.fill" : "crown").font(.title3).foregroundStyle(Theme.accent).frame(width: 26)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(entitlements.isPro ? "NetTactix Pro — active" : "Upgrade to NetTactix Pro").font(.headline).foregroundStyle(Theme.accent)
+                            Text(entitlements.isPro ? "NetTactix Pro: active" : "Upgrade to NetTactix Pro").font(.headline).foregroundStyle(Theme.accent)
                             Text(entitlements.isPro ? "Thanks for supporting OathSec" : "See Free vs Pro (\(Entitlements.proPriceText))").font(.caption).foregroundStyle(Theme.dim)
                         }
                         Spacer()

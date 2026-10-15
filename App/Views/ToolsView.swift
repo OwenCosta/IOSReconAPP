@@ -99,12 +99,12 @@ struct ToolRunnerView: View {
                             .onSubmit(run)
                     }
                     if spec.active {
-                        Label("Active tool – sends traffic to the target. Only use on systems you are authorised to test.",
+                        Label("Active tool: sends traffic to the target. Only use on systems you are authorised to test.",
                               systemImage: "exclamationmark.triangle.fill")
                             .font(.caption).foregroundStyle(Severity.medium.color)
                     }
                     if let key = spec.requiresKey, KeychainSecrets.get(key) == nil {
-                        Label("Needs a \(key.capitalized) API key – add it in Settings.", systemImage: "key")
+                        Label("Needs a \(key.capitalized) API key. Add it in Settings.", systemImage: "key")
                             .font(.caption).foregroundStyle(Theme.dim)
                     }
                     HStack {

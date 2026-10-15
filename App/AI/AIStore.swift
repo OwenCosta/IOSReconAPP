@@ -78,7 +78,7 @@ final class AIStore: ObservableObject {
         }
     }
     @AppStorage("nettactix.ai.selectedProviderID") private var selectedProviderIDRaw: String = ""
-    /// The single permission gate for tool use: off by default. When on, the Copilot may
+    /// The single permission gate for tool use: off by default. When on, the Assistant may
     /// call any NetTactix tool on its own — including active ones that send real traffic —
     /// without a confirmation per call, so the toggle itself is the "given permission".
     @AppStorage("nettactix.ai.toolsAllowed") var toolsAllowed: Bool = false
@@ -152,7 +152,7 @@ final class AIStore: ObservableObject {
 
     // MARK: Tool execution bridge
 
-    /// Runs one NetTactix tool by id for the Copilot and renders its output back to plain
+    /// Runs one NetTactix tool by id for the Assistant and renders its output back to plain
     /// text. Never throws — a bad id, a timeout or a tool failure all become a result the
     /// model can read and react to, same as any other tool-calling agent. A free static
     /// function (rather than an instance method) so it never captures the (non-Sendable)

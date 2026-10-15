@@ -283,7 +283,7 @@ func scanReport(target: String, hosts: [HostResult]) -> ReconReport {
         }
         if h.openPorts.isEmpty { s.add("Result", "no open ports found") }
         if h.likelyProxyInterference {
-            s.add("⚠︎ Warning", "\(h.openPorts.count)/\(h.scannedCount) ports look open — a carrier NAT, captive portal or proxy is probably answering for every port. These results are unreliable; re-scan on Wi-Fi.", .high)
+            s.add("⚠︎ Warning", "\(h.openPorts.count)/\(h.scannedCount) ports look open. A carrier NAT, captive portal or proxy is probably answering for every port. These results are unreliable; re-scan on Wi-Fi.", .high)
             report.findings.append(Finding(.medium, "Scan of \(h.host) may be unreliable (proxy/NAT interference)", "Almost all probed ports reported open.", source: "portscan"))
         }
         if let hint = h.deviceHint, !h.likelyProxyInterference { s.add("Role hint", hint) }

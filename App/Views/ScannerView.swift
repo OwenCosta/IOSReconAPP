@@ -2,7 +2,7 @@ import SwiftUI
 import ReconCore
 
 enum PortPreset: String, CaseIterable, Identifiable {
-    case top20 = "Top 20", top100 = "Top 100", wellKnown = "1–1024", full = "All 65535", custom = "Custom"
+    case top20 = "Top 20", top100 = "Top 100", wellKnown = "1 to 1024", full = "All 65535", custom = "Custom"
     var id: String { rawValue }
     var spec: String? {
         switch self {
@@ -55,7 +55,7 @@ final class ScanViewModel: ObservableObject {
             // any progress UI even appears. Capping the product catches that combination.
             let probeCount = targets.count * ports.count + (includeUDP ? targets.count * UDPProbe.ports.count : 0)
             guard probeCount <= 200_000 else {
-                throw ReconError.invalidInput("\(targets.count) targets × \(ports.count) ports is \(probeCount) probes — too many for one scan. Narrow the target range or port list.")
+                throw ReconError.invalidInput("\(targets.count) targets × \(ports.count) ports is \(probeCount) probes, too many for one scan. Narrow the target range or port list.")
             }
             var cfg = ScanConfig(targets: targets, ports: ports)
             cfg.grabBanners = grabBanners
@@ -227,7 +227,7 @@ private struct HostCard: View {
                 Text("\(ports.count) open").font(.caption).foregroundStyle(Theme.dim)
             }
             if proxyWarning {
-                Label("\(ports.count)/\(scanned) ports open — a carrier NAT / captive portal / proxy is likely answering for every port. Re-scan on Wi-Fi; these results are unreliable.",
+                Label("\(ports.count)/\(scanned) ports open. A carrier NAT / captive portal / proxy is likely answering for every port. Re-scan on Wi-Fi; these results are unreliable.",
                       systemImage: "exclamationmark.triangle.fill")
                     .font(.caption).foregroundStyle(Severity.high.color).fixedSize(horizontal: false, vertical: true)
             }

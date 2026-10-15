@@ -23,7 +23,7 @@ final class Entitlements: ObservableObject {
         "Bluetooth (BLE) scanner",
     ]
     static let proAdds: [String] = [
-        "AI Copilot with unlimited chats & providers",
+        "AI Assistant with unlimited chats & providers",
         "SSH terminal + SFTP file browser",
         "IP camera recon & RTSP toolkit",
         "Deep recon pipelines & scheduled re-scans",

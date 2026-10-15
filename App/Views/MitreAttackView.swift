@@ -26,7 +26,7 @@ struct MitreAttackView: View {
                 } header: { Text("\(hits.count) matches") }
             } else {
                 Section {
-                    Text("MITRE ATT&CK — Enterprise matrix. \(MitreAttack.techniques.count) techniques across \(MitreAttack.tactics.count) tactics, offline.")
+                    Text("MITRE ATT&CK: Enterprise matrix. \(MitreAttack.techniques.count) techniques across \(MitreAttack.tactics.count) tactics, offline.")
                         .font(.caption).foregroundStyle(Theme.dim)
                 } .listRowBackground(Color.clear)
                 ForEach(MitreAttack.tactics) { ta in
@@ -168,7 +168,7 @@ private struct MitreTechniqueView: View {
     }
 
     private func save() {
-        var s = ReportSection("\(technique.id) — \(technique.name)",
+        var s = ReportSection("\(technique.id): \(technique.name)",
                               note: "Tactic: \(technique.tactics.compactMap { MitreAttack.tactic($0)?.name }.joined(separator: ", "))")
         s.add("What", technique.summary)
         s.add("Detect", technique.detection, .low)

@@ -130,7 +130,7 @@ struct DashboardView: View {
                 Image(systemName: "terminal.fill").font(.title3).foregroundStyle(Theme.accent).frame(width: 26)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("SSH Terminal").font(.headline).foregroundStyle(Theme.accent)
-                    Text("Connect to your servers and run commands live — no laptop needed")
+                    Text("Connect to your servers and run commands live, no laptop needed")
                         .font(.caption).foregroundStyle(Theme.dim)
                 }
                 Spacer()
@@ -146,8 +146,8 @@ struct DashboardView: View {
             HStack(spacing: 12) {
                 Image(systemName: "sparkles").font(.title3).foregroundStyle(Theme.accent).frame(width: 26)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("AI Copilot").font(.headline).foregroundStyle(Theme.accent)
-                    Text("Chat with a local or API AI for recon, CTF & app help — saved on-device")
+                    Text("AI Assistant").font(.headline).foregroundStyle(Theme.accent)
+                    Text("Chat with a local or API AI for recon, CTF & app help, saved on-device")
                         .font(.caption).foregroundStyle(Theme.dim)
                 }
                 Spacer()
@@ -164,7 +164,7 @@ struct DashboardView: View {
                 Image(systemName: "video.badge.waveform").font(.title3).foregroundStyle(Severity.high.color).frame(width: 26)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Camera Auto-Discovery").font(.headline).foregroundStyle(Theme.accent)
-                    Text("Find cameras on this Wi-Fi automatically — WS-Discovery + mDNS")
+                    Text("Find cameras on this Wi-Fi automatically: WS-Discovery + mDNS")
                         .font(.caption).foregroundStyle(Theme.dim)
                 }
                 Spacer()
@@ -181,7 +181,7 @@ struct DashboardView: View {
                 Image(systemName: "dot.radiowaves.left.and.right").font(.title3).foregroundStyle(Theme.accent).frame(width: 26)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Bluetooth Scanner").font(.headline).foregroundStyle(Theme.accent)
-                    Text("Discover nearby BLE devices — name, vendor, services, signal")
+                    Text("Discover nearby BLE devices: name, vendor, services, signal")
                         .font(.caption).foregroundStyle(Theme.dim)
                 }
                 Spacer()

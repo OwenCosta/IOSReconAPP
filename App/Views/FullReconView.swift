@@ -119,7 +119,7 @@ struct FullReconView: View {
                     }
 
                     if model.stoppedEarly {
-                        Label("Scan stopped — results below are incomplete.", systemImage: "exclamationmark.triangle.fill")
+                        Label("Scan stopped. Results below are incomplete.", systemImage: "exclamationmark.triangle.fill")
                             .font(.caption).foregroundStyle(Severity.high.color)
                     }
                     if !model.findings.isEmpty { FindingsCard(findings: model.findings) }

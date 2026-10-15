@@ -20,7 +20,7 @@ struct ChatView: View {
     var body: some View {
         VStack(spacing: 0) {
             if provider == nil {
-                Text("No AI provider selected. Add one from Copilot → ⋯ → AI providers.")
+                Text("No AI provider selected. Add one from Assistant → ⋯ → AI providers.")
                     .font(.caption).foregroundStyle(Theme.dim).padding()
             }
             messages
@@ -170,7 +170,7 @@ struct ChatView: View {
 
         \(firstUser.prefix(300))
         """
-        let instructions = "You write short chat titles only — no extra commentary."
+        let instructions = "You write short chat titles only, no extra commentary."
         if p.isLocalModel {
             Task { @MainActor in
                 guard let raw = try? await localModel.scratchRespond(modelID: p.model, instructions: instructions, prompt: prompt) else { return }
@@ -241,16 +241,16 @@ struct ChatView: View {
         let system = allowTools ? AIClient.defaultSystemPrompt + """
 
 
-            Tools: call run_tool only when this message actually needs one — a scan, lookup, \
+            Tools: call run_tool only when this message actually needs one: a scan, lookup, \
             decode/convert/generate, or another result only a tool can produce. Otherwise answer \
-            directly in plain text; most messages need no tool. Directory (id: title — subtitle):
+            directly in plain text; most messages need no tool. Directory (id: title, subtitle):
             \(ToolCatalog.directoryText())
 
-            Important: after a tool runs, the user does NOT see its output — only a small \
+            Important: after a tool runs, the user does NOT see its output. Only a small \
             "Ran: <tool name>" line with no results. You are the only one who sees what the \
             tool actually returned, so your final answer must state the real findings yourself \
-            (the actual values, numbers, addresses, names — whatever the tool returned), in full. \
-            Never say things like "see above", "as shown above", or "the results are displayed" — \
+            (the actual values, numbers, addresses, names, whatever the tool returned), in full. \
+            Never say things like "see above", "as shown above", or "the results are displayed": \
             nothing is displayed except what you write.
             """ : AIClient.defaultSystemPrompt
         withBackgroundTime {
@@ -334,16 +334,16 @@ struct ChatView: View {
         let system = AIClient.defaultSystemPrompt + """
 
 
-            Tools: call run_tool only when this message actually needs one — a scan, lookup, \
+            Tools: call run_tool only when this message actually needs one: a scan, lookup, \
             decode/convert/generate, or another result only a tool can produce. Otherwise answer \
-            directly in plain text; most messages need no tool. Directory (id: title — subtitle):
+            directly in plain text; most messages need no tool. Directory (id: title, subtitle):
             \(ToolCatalog.directoryText())
 
-            Important: after a tool runs, the user does NOT see its output — only a small \
+            Important: after a tool runs, the user does NOT see its output. Only a small \
             "Ran: <tool name>" line with no results. You are the only one who sees what the \
             tool actually returned, so your final answer must state the real findings yourself \
-            (the actual values, numbers, addresses, names — whatever the tool returned), in full. \
-            Never say things like "see above", "as shown above", or "the results are displayed" — \
+            (the actual values, numbers, addresses, names, whatever the tool returned), in full. \
+            Never say things like "see above", "as shown above", or "the results are displayed": \
             nothing is displayed except what you write.
             """
         // No trailing placeholder is appended in this path (unlike sendStreaming), so the

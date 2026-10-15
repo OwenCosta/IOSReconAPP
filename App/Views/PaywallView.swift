@@ -14,7 +14,7 @@ struct PaywallView: View {
                     VStack(spacing: 6) {
                         (Text("NET").foregroundColor(Theme.accent) + Text("TACTIX ").foregroundColor(Theme.fg) + Text("PRO").foregroundColor(Theme.accent))
                             .font(.system(size: 28, weight: .bold, design: .monospaced))
-                        Text(ent.isPro ? "You're on Pro — thank you." : "Unlock the full offensive-security suite")
+                        Text(ent.isPro ? "You're on Pro. Thank you." : "Unlock the full offensive-security suite")
                             .font(.callout).foregroundStyle(Theme.dim).multilineTextAlignment(.center)
                     }.padding(.top, 8)
 
@@ -27,7 +27,7 @@ struct PaywallView: View {
                     } else {
                         Button { ent.devUnlock() } label: { Label("Unlock Pro", systemImage: "lock.open.fill") }
                             .buttonStyle(PrimaryButtonStyle())
-                        Text("Billing coming soon via the App Store. During the competition everything is already unlocked — this preview just shows the planned Pro tier.")
+                        Text("Billing coming soon via the App Store. During the competition everything is already unlocked, and this preview just shows the planned Pro tier.")
                             .font(.caption2).foregroundStyle(Theme.dim).multilineTextAlignment(.center).padding(.horizontal, 8)
                     }
                 }
