@@ -208,11 +208,11 @@ struct ChatView: View {
         ai.update(convo)
         sending = true
 
-        // The on-device model doesn't go through AIClient/HTTP at all — it has no concept of
-        // tool-calling in this version, so it always takes its own single path regardless of
-        // the tools toggle or whether the message looks like small talk.
+        // The on-device model never goes through AIClient/HTTP, but it does get real tool
+        // calling via MLX's own ChatSession tool support (see LocalModelStore.respond) — same
+        // toolsAllowed/small-talk gating as the remote path below, just a different mechanism.
         if p.isLocalModel {
-            sendLocal(p)
+            sendLocal(p, allowTools: ai.toolsAllowed && !isSmallTalk(text))
             return
         }
 
@@ -229,17 +229,44 @@ struct ChatView: View {
         }
     }
 
-    /// On-device (MLX) path: no HTTP request, no tool-calling in this version — resolves in
-    /// one block like sendWithTools rather than streaming token-by-token.
-    private func sendLocal(_ p: AIProviderConfig) {
+    /// On-device (MLX) path: no HTTP request, but real tool calling when `allowTools` is true
+    /// (see LocalModelStore.respond) — resolves in one block like sendWithTools rather than
+    /// streaming token-by-token, since the model may pause mid-turn to call a tool.
+    private func sendLocal(_ p: AIProviderConfig, allowTools: Bool) {
         let conversationID = convo.id
         let lastUser = convo.messages.last(where: { $0.role == "user" })?.content ?? ""
+        // Same directory text the remote tool-calling path uses, only included when tools are
+        // actually in play — keeps the system prompt short (and small/local models from
+        // free-associating on tool names) the rest of the time, same reasoning as sendWithTools.
+        let system = allowTools ? AIClient.defaultSystemPrompt + """
+
+
+            Tools: call run_tool only when this message actually needs one — a scan, lookup, \
+            decode/convert/generate, or another result only a tool can produce. Otherwise answer \
+            directly in plain text; most messages need no tool. Directory (id: title — subtitle):
+            \(ToolCatalog.directoryText())
+
+            Important: after a tool runs, the user does NOT see its output — only a small \
+            "Ran: <tool name>" line with no results. You are the only one who sees what the \
+            tool actually returned, so your final answer must state the real findings yourself \
+            (the actual values, numbers, addresses, names — whatever the tool returned), in full. \
+            Never say things like "see above", "as shown above", or "the results are displayed" — \
+            nothing is displayed except what you write.
+            """ : AIClient.defaultSystemPrompt
         withBackgroundTime {
             do {
-                let reply = try await localModel.respond(conversationID: conversationID,
-                                                          modelID: p.model,
-                                                          system: AIClient.defaultSystemPrompt,
-                                                          userMessage: lastUser)
+                let reply = try await localModel.respond(
+                    conversationID: conversationID, modelID: p.model, system: system, userMessage: lastUser,
+                    allowTools: allowTools,
+                    onToolCall: { id, input in
+                        Task { @MainActor in
+                            let label = ToolCatalog.spec(id: id)?.title ?? id
+                            let shown = input.isEmpty ? label : "\(label)(\(input.prefix(60)))"
+                            convo.messages.append(.init(role: "tool", content: "Ran: \(shown)"))
+                            ai.update(convo)
+                        }
+                    }
+                )
                 convo.messages.append(.init(role: "assistant", content: reply))
                 maybeGenerateTitle(p)
             } catch {

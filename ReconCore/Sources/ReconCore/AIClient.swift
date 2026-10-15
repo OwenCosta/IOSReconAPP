@@ -332,14 +332,16 @@ public enum AIClient {
     public static let runToolName = "run_tool"
     public static let runToolDescription =
         "Run one NetTactix tool by its id and return its output. Pick tool_id from the tool directory given in the system prompt."
-    public static let runToolParameters: [String: Any] = [
+    /// `any Sendable` (not just `Any`) so this can also be handed directly to MLX's
+    /// ChatSession.tools (LocalModelStore), which requires Sendable values throughout.
+    public static let runToolParameters: [String: any Sendable] = [
         "type": "object",
         "properties": [
             "tool_id": ["type": "string", "description": "The exact tool id from the directory, e.g. \"dns-records\"."],
             "input": ["type": "string", "description": "The target/text to pass to the tool. Empty string if the tool takes no input."]
-        ],
+        ] as [String: any Sendable],
         "required": ["tool_id"]
-    ]
+    ] as [String: any Sendable]
 
     /// Build the HTTP request for one agent turn. Pure → unit-testable. When `allowTools` is
     /// false, the request omits the tool/tool_choice fields entirely so the model is physically
@@ -485,7 +487,7 @@ public enum AIClient {
         for step in 0..<stepCount {
             let isLastStep = step == stepCount - 1
             let built = try buildAgentRequest(p, turns: turns, toolName: runToolName,
-                                              toolDescription: runToolDescription, toolParameters: runToolParameters,
+                                              toolDescription: runToolDescription, toolParameters: runToolParameters as [String: Any],
                                               allowTools: !isLastStep)
             let r = try await HTTP.request(built.url, method: "POST", headers: built.headers, body: built.body,
                                            timeout: timeout, followRedirects: true, maxBytes: 4_000_000)

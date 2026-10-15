@@ -4,6 +4,7 @@ import MLXLMCommon
 import MLXHuggingFace
 import HuggingFace
 import Tokenizers
+import ReconCore
 
 /// Runs a quantised LLM entirely on-device via Apple's MLX framework — no network request, no
 /// API key, works fully offline once downloaded. NetTactix offers a catalog of pre-quantised
@@ -213,11 +214,31 @@ final class LocalModelStore: ObservableObject {
         try? FileManager.default.removeItem(at: cache.metadataDirectory(repo: repoID, kind: .model))
     }
 
+    /// The same single generic function exposed to remote providers (AIClient.agentComplete):
+    /// one `run_tool(tool_id, input)` call the model can make, with the full catalog described
+    /// in the system prompt rather than one schema entry per tool — small/local models handle
+    /// one simple function far more reliably than dozens of specific ones. mlx-swift-lm's
+    /// default tool-call format (the one Llama- and Qwen-family chat templates use, which is
+    /// every model in this app's catalog) is what actually makes this work for a local model at
+    /// all — ChatSession.respond() otherwise has no concept of tool use whatsoever.
+    private static let runToolSpec: [String: any Sendable] = [
+        "type": "function",
+        "function": [
+            "name": AIClient.runToolName,
+            "description": AIClient.runToolDescription,
+            "parameters": AIClient.runToolParameters,
+        ] as [String: any Sendable],
+    ]
+
     /// Generate a reply for one conversation on the given model. `system` only takes effect the
     /// first time this conversation is seen in the current app session, since that's when its
     /// ChatSession is created; later calls reuse that same session so it keeps everything said
-    /// so far.
-    func respond(conversationID: UUID, modelID: String, system: String, userMessage: String) async throws -> String {
+    /// so far. `allowTools` is re-applied on every call (not just session creation) since the
+    /// same persistent session is reused for small-talk and tool-worthy messages alike within
+    /// one conversation. `onToolCall` fires once per tool call for the caller to show a "Ran:
+    /// <tool>" line — the user never sees the tool's raw output, same as the remote path.
+    func respond(conversationID: UUID, modelID: String, system: String, userMessage: String,
+                 allowTools: Bool, onToolCall: @escaping @Sendable (String, String) -> Void) async throws -> String {
         let container = try await ensureLoaded(modelID: modelID)
         let session: ChatSession
         if let existing = sessions[conversationID] {
@@ -226,6 +247,25 @@ final class LocalModelStore: ObservableObject {
             session = ChatSession(container, instructions: system,
                                   generateParameters: GenerateParameters(maxTokens: 1024, temperature: 0.7))
             sessions[conversationID] = session
+        }
+        // instructions (like tools/toolDispatch below) is re-applied every call, not just at
+        // session creation, since the same persistent session mixes small-talk and tool-
+        // worthy messages within one conversation and each needs its own system prompt.
+        session.instructions = system
+        if allowTools {
+            session.tools = [Self.runToolSpec]
+            session.toolDispatch = { call in
+                guard case .string(let toolID)? = call.function.arguments["tool_id"], !toolID.isEmpty else {
+                    return "error: missing or empty tool_id"
+                }
+                let input: String
+                if case .string(let s)? = call.function.arguments["input"] { input = s } else { input = "" }
+                onToolCall(toolID, input)
+                return await AIStore.executeTool(id: toolID, input: input)
+            }
+        } else {
+            session.tools = nil
+            session.toolDispatch = nil
         }
         let reply = try await session.respond(to: userMessage)
         let trimmed = reply.trimmingCharacters(in: .whitespacesAndNewlines)
