@@ -129,9 +129,13 @@ struct ReportDetailView: View {
             TextField("Name", text: $renameText)
             Button("Cancel", role: .cancel) { }
             Button("Rename") {
-                store.rename(report, to: renameText)
-                report.target = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+                let trimmed = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+                // Only update the on-screen title if the store actually saved it — rename()
+                // no-ops on an empty/whitespace-only name, and this view's title used to
+                // change anyway, showing a name that was never persisted.
+                if store.rename(report, to: trimmed) { report.target = trimmed }
             }
+            .disabled(renameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
     }
 }

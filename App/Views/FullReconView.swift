@@ -12,11 +12,16 @@ final class FullReconModel: ObservableObject {
     @Published var sections: [ReportSection] = []
     @Published var findings: [Finding] = []
     @Published var report: ReconReport?
+    /// Set only by a user-initiated stop() — lets the view mark whatever sections/findings
+    /// accumulated so far as incomplete, instead of looking like a normal finished run just
+    /// because results are present.
+    @Published var stoppedEarly = false
     private var task: Task<Void, Never>?
 
     func start(store: SessionStore) {
         guard !running else { return }
         running = true
+        stoppedEarly = false
         stage = "Starting…"
         fraction = 0
         log = []
@@ -45,6 +50,7 @@ final class FullReconModel: ObservableObject {
         task?.cancel()
         task = nil
         running = false
+        stoppedEarly = true
         stage = "Stopped"
     }
 }
@@ -112,6 +118,10 @@ struct FullReconView: View {
                         }.card()
                     }
 
+                    if model.stoppedEarly {
+                        Label("Scan stopped — results below are incomplete.", systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption).foregroundStyle(Severity.high.color)
+                    }
                     if !model.findings.isEmpty { FindingsCard(findings: model.findings) }
                     if let r = model.report, let s = r.sections.first {
                         SectionCard(section: s)

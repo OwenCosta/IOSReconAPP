@@ -29,6 +29,12 @@ enum SSHConnect {
     static func connect(host: SSHHost, password: String?, privateKey: String?, passphrase: String?,
                         timeout: Int64 = 20) async throws -> SSHClient {
         let auth = try makeAuth(host: host, password: password, privateKey: privateKey, passphrase: passphrase)
+        // TODO: this is NOT trust-on-first-use — it accepts any host key, every connection, with
+        // nothing remembered or compared between attempts. Real TOFU needs a persisted per-host
+        // key fingerprint (Keychain) checked via SSHHostKeyValidator.custom(_:), which in turn
+        // needs a way to get stable bytes out of the NIOSSHPublicKey swift-nio-ssh hands the
+        // validator — not exposed publicly as of swift-nio-ssh's current API, so this is left as
+        // a real known gap rather than a false claim. The Terminal screen's footer says so.
         return try await SSHClient.connect(
             host: host.host,
             port: host.port,

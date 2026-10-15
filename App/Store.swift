@@ -41,12 +41,16 @@ final class SessionStore: ObservableObject {
     }
 
     /// Rename a report's displayed target (e.g. to fix a generic/mistyped name — a hidden-input
-    /// tool's "(hidden input)" placeholder is a common case). No-ops on an empty name.
-    func rename(_ report: ReconReport, to newTarget: String) {
+    /// tool's "(hidden input)" placeholder is a common case). No-ops on an empty name — callers
+    /// must check the return value before updating their own local copy of the report, or their
+    /// view ends up showing a new title that was never actually saved.
+    @discardableResult
+    func rename(_ report: ReconReport, to newTarget: String) -> Bool {
         let t = newTarget.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !t.isEmpty, let i = reports.firstIndex(where: { $0.id == report.id }) else { return }
+        guard !t.isEmpty, let i = reports.firstIndex(where: { $0.id == report.id }) else { return false }
         reports[i].target = t
         save()
+        return true
     }
 
     func clear() {
@@ -140,7 +144,19 @@ final class SessionStore: ObservableObject {
         let dec = JSONDecoder()
         dec.dateDecodingStrategy = .iso8601
         if let data = try? Data(contentsOf: url) {
-            reports = (try? dec.decode([ReconReport].self, from: data)) ?? []
+            if let decoded = try? dec.decode([ReconReport].self, from: data) {
+                reports = decoded
+            } else if let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                // The whole-array decode failed — one malformed or legacy report is enough to
+                // break it for every report in the file. Falling back to decoding element by
+                // element means a single bad entry just gets skipped instead of silently
+                // wiping every other saved report (and the next save() permanently losing
+                // them, since save() overwrites this same file).
+                reports = array.compactMap { obj in
+                    guard let itemData = try? JSONSerialization.data(withJSONObject: obj) else { return nil }
+                    return try? dec.decode(ReconReport.self, from: itemData)
+                }
+            }
         }
         if let data = try? Data(contentsOf: metaURL), let meta = try? dec.decode(FolderMeta.self, from: data) {
             createdFolders = meta.created

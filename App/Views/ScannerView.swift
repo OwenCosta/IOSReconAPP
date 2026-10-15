@@ -48,6 +48,15 @@ final class ScanViewModel: ObservableObject {
         do {
             let targets = try TargetParser.expand(target)
             let ports = try PortSpec.parse(preset.spec ?? customPorts)
+            // TargetParser and PortSpec each cap their own side (host count, port count), but
+            // say nothing about the product of the two — "All 65535" ports against a wide CIDR
+            // can still multiply out to hundreds of millions of probe jobs, which hangs or OOMs
+            // the device building that array before a single byte goes on the wire and before
+            // any progress UI even appears. Capping the product catches that combination.
+            let probeCount = targets.count * ports.count + (includeUDP ? targets.count * UDPProbe.ports.count : 0)
+            guard probeCount <= 200_000 else {
+                throw ReconError.invalidInput("\(targets.count) targets × \(ports.count) ports is \(probeCount) probes — too many for one scan. Narrow the target range or port list.")
+            }
             var cfg = ScanConfig(targets: targets, ports: ports)
             cfg.grabBanners = grabBanners
             cfg.includeUDP = includeUDP

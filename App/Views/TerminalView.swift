@@ -41,7 +41,7 @@ struct TerminalHomeView: View {
                     } header: {
                         Text("Servers").foregroundStyle(Theme.accent)
                     } footer: {
-                        Text("Credentials are stored only in this device's Keychain. Host keys are accepted on first use (trust-on-first-use).")
+                        Text("Credentials are stored only in this device's Keychain. Host keys are currently accepted unconditionally (no fingerprint is checked or remembered) — only connect to hosts and networks you trust.")
                             .font(.caption2).foregroundStyle(Theme.dim)
                     }
                 }

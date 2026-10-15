@@ -9,8 +9,13 @@ struct ReportsScreen: View {
     @State private var renaming: String?
     @State private var renameText = ""
     @State private var confirmDelete: String?
+    @State private var confirmDeleteReport: ReconReport?
     @State private var creatingFolder = false
     @State private var newFolderName = ""
+    /// Set only when a folder rename's new name collides with a different existing folder —
+    /// renaming there would silently merge every report from the old folder into it, so that
+    /// gets a confirmation instead of just happening on the spot.
+    @State private var pendingFolderMerge: (old: String, new: String)?
 
     private var folders: [String] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
@@ -45,7 +50,7 @@ struct ReportsScreen: View {
                                     NavigationLink { ReportDetailView(report: r) } label: { ReportRow(report: r) }
                                         .listRowBackground(Theme.card)
                                         .swipeActions(edge: .trailing) {
-                                            Button(role: .destructive) { store.delete(r) } label: { Label("Delete", systemImage: "trash") }
+                                            Button(role: .destructive) { confirmDeleteReport = r } label: { Label("Delete", systemImage: "trash") }
                                         }
                                         .contextMenu { moveMenu(for: r) }
                                 }
@@ -96,14 +101,40 @@ struct ReportsScreen: View {
             TextField("Folder name", text: $newFolderName)
             Button("Cancel", role: .cancel) { }
             Button("Create") { store.createFolder(newFolderName) }
+                .disabled(newFolderName.trimmingCharacters(in: .whitespaces).isEmpty)
         }
         .alert("Rename folder", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
             TextField("Folder name", text: $renameText)
             Button("Cancel", role: .cancel) { renaming = nil }
-            Button("Rename") { if let old = renaming { store.renameFolder(old, to: renameText) }; renaming = nil }
+            Button("Rename") {
+                guard let old = renaming else { return }
+                let newName = renameText.trimmingCharacters(in: .whitespaces)
+                if newName != old, store.folders.contains(newName) {
+                    // Renaming into an existing folder's name merges every report from the
+                    // old folder into it — worth a confirmation instead of happening silently.
+                    pendingFolderMerge = (old, newName)
+                } else {
+                    store.renameFolder(old, to: renameText)
+                }
+                renaming = nil
+            }
+            .disabled(renameText.trimmingCharacters(in: .whitespaces).isEmpty)
         }
         .confirmationDialog("Delete this folder and all its reports?", isPresented: Binding(get: { confirmDelete != nil }, set: { if !$0 { confirmDelete = nil } }), titleVisibility: .visible) {
             Button("Delete", role: .destructive) { if let f = confirmDelete { store.deleteFolder(f) }; confirmDelete = nil }
+        }
+        .confirmationDialog(
+            pendingFolderMerge.map { "Merge \"\($0.old)\" into \"\($0.new)\"? All its reports will move into \"\($0.new)\" and \"\($0.old)\" will no longer exist." } ?? "",
+            isPresented: Binding(get: { pendingFolderMerge != nil }, set: { if !$0 { pendingFolderMerge = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("Merge", role: .destructive) {
+                if let m = pendingFolderMerge { store.renameFolder(m.old, to: m.new) }
+                pendingFolderMerge = nil
+            }
+        }
+        .confirmationDialog("Delete this report?", isPresented: Binding(get: { confirmDeleteReport != nil }, set: { if !$0 { confirmDeleteReport = nil } }), titleVisibility: .visible) {
+            Button("Delete", role: .destructive) { if let r = confirmDeleteReport { store.delete(r) }; confirmDeleteReport = nil }
         }
     }
 
