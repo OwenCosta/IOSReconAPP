@@ -119,15 +119,15 @@ public enum JWT {
         let alg = (header["alg"] as? String) ?? "?"
         hs.add("Algorithm", alg)
         if alg.lowercased() == "none" {
-            hs.add("Risk", "alg=none: signature not verified – accept only if server rejects unsigned tokens", .critical)
+            hs.add("Risk", "alg=none: signature not verified, accept only if server rejects unsigned tokens", .critical)
             out.findings.append(Finding(.critical, "JWT uses alg=none", "Unsigned tokens may be accepted by misconfigured servers.", source: "jwt"))
         } else if alg.hasPrefix("HS") {
-            hs.add("Note", "Symmetric HMAC – test for weak/guessable signing secrets and RS→HS confusion", .low)
+            hs.add("Note", "Symmetric HMAC: test for weak/guessable signing secrets and RS→HS confusion", .low)
         }
         if header["jku"] != nil || header["x5u"] != nil || header["jwk"] != nil {
-            hs.add("Risk", "Token carries key-source headers (jku/x5u/jwk) – test for key injection", .medium)
+            hs.add("Risk", "Token carries key-source headers (jku/x5u/jwk), test for key injection", .medium)
         }
-        if header["kid"] != nil { hs.add("kid", "\(header["kid"]!) – test kid for path traversal / SQLi", .low) }
+        if header["kid"] != nil { hs.add("kid", "\(header["kid"]!): test kid for path traversal / SQLi", .low) }
 
         var ps = ReportSection("Payload")
         ps.add("JSON", pretty(payload))
@@ -142,7 +142,7 @@ public enum JWT {
                 ps.add(key, note, sev)
             }
         }
-        if payload["exp"] == nil { ps.add("exp", "no expiry – token never expires", .medium) }
+        if payload["exp"] == nil { ps.add("exp", "no expiry, token never expires", .medium) }
         if parts.count == 3 && parts[2].isEmpty && alg.lowercased() != "none" {
             ps.add("Signature", "empty signature segment", .high)
         }

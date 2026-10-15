@@ -504,7 +504,7 @@ public enum AIClient {
                 // e.g. a bad key or rate limit, throws .network and still surfaces normally
                 // below). Don't blow up the whole conversation over a blank round; treat it the
                 // same as running out of steps and answer with the graceful fallback.
-                return ("I wasn't able to finish that — try again, or ask something more specific.", toolLog)
+                return ("I wasn't able to finish that. Try again, or ask something more specific.", toolLog)
             }
             switch turn {
             case .text(let text):
@@ -514,7 +514,7 @@ public enum AIClient {
                 // returns a tool call here is non-compliant — fall back gracefully rather
                 // than ever throwing a dead-end error back at the user.
                 if isLastStep {
-                    return ("I wasn't able to finish that within the allowed steps — try asking again, or something more specific.", toolLog)
+                    return ("I wasn't able to finish that within the allowed steps. Try asking again, or something more specific.", toolLog)
                 }
                 turns.append(.assistantToolCalls(calls))
                 var results: [(callID: String, text: String)] = []
@@ -529,7 +529,7 @@ public enum AIClient {
                 turns.append(.toolResults(results))
             }
         }
-        return ("I wasn't able to finish that within the allowed steps — try asking again, or something more specific.", toolLog)
+        return ("I wasn't able to finish that within the allowed steps. Try asking again, or something more specific.", toolLog)
     }
 
     /// The assistant's default system prompt — a NetTactix recon/CTF co-pilot. Deliberately
@@ -540,7 +540,7 @@ public enum AIClient {
     /// of just answering normally. Tool-specific guidance lives in the tool-enabled path's own
     /// directory text (ToolCatalog.directoryText()), not here.
     public static let defaultSystemPrompt = """
-    You are NetTactix Copilot, a cybersecurity assistant built into the NetTactix iOS recon \
+    You are NetTactix Assistant, a cybersecurity assistant built into the NetTactix iOS recon \
     toolkit by OathSec, helping with authorised penetration testing, CTF competitions, and \
     OSINT. Be concise and practical, and give exact commands or payloads where useful. Assume \
     all activity is on systems the user owns or is explicitly authorised to test, and don't \

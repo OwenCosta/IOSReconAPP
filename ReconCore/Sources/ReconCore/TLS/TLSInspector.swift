@@ -24,7 +24,7 @@ public enum TLSAnalysis {
         conn.add("Negotiated", s.negotiatedVersion ?? "unknown")
         conn.add("Cipher suite", s.cipher ?? "unknown")
         if let a = s.alpn { conn.add("ALPN", a) }
-        conn.add("Chain trusted by iOS", s.trusted ? "yes" : "NO – \(s.trustError ?? "validation failed")", s.trusted ? .info : .high)
+        conn.add("Chain trusted by iOS", s.trusted ? "yes" : "NO: \(s.trustError ?? "validation failed")", s.trusted ? .info : .high)
         if !s.trusted {
             out.findings.append(Finding(.high, "Untrusted certificate on \(s.host):\(s.port)", s.trustError ?? "", source: "tls"))
         }
@@ -35,7 +35,7 @@ public enum TLSAnalysis {
 
         if !s.protocolSupport.isEmpty {
             var p = ReportSection("Protocol support",
-                                  note: "Tested by forcing each version. iOS disables TLS 1.0/1.1 system-wide, so a “rejected” there reflects this device — not proof the server disabled it.")
+                                  note: "Tested by forcing each version. iOS disables TLS 1.0/1.1 system-wide, so a “rejected” there reflects this device, not proof the server disabled it.")
             for (name, ok) in s.protocolSupport {
                 let legacy = name.contains("1.0") || name.contains("1.1")
                 p.add(name, ok ? "accepted" : "rejected", ok && legacy ? .medium : .info)
@@ -71,7 +71,7 @@ public enum TLSAnalysis {
                 sec.add("Subject Alt Names", c.subjectAltNames.isEmpty ? "none" : c.subjectAltNames.joined(separator: "\n"))
                 let match = X509.hostMatches(s.host, names: c.subjectAltNames.isEmpty ? [c.subjectCN] : c.subjectAltNames)
                 if !IPv4.isIP(s.host) {
-                    sec.add("Hostname match", match ? "yes" : "NO – certificate not valid for \(s.host)", match ? .info : .high)
+                    sec.add("Hostname match", match ? "yes" : "NO: certificate not valid for \(s.host)", match ? .info : .high)
                     if !match { out.findings.append(Finding(.high, "Certificate name mismatch for \(s.host)", "SANs: \(c.subjectAltNames.joined(separator: ", "))", source: "tls")) }
                 }
                 if c.selfSigned { sec.add("Self-signed", "yes", .high); out.findings.append(Finding(.high, "Self-signed certificate on \(s.host):\(s.port)", "", source: "tls")) }

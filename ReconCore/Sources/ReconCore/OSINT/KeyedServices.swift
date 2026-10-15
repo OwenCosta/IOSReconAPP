@@ -7,7 +7,7 @@ public enum KeyedServices {
     // MARK: Have I Been Pwned – account breaches
 
     public static func hibpAccount(_ email: String, key: String) async -> ToolOutput {
-        var s = ReportSection("Have I Been Pwned – breaches")
+        var s = ReportSection("Have I Been Pwned: breaches")
         var out = ToolOutput()
         guard let url = URL(string: "https://haveibeenpwned.com/api/v3/breachedaccount/\(HTTP.q(email))?truncateResponse=false") else { return out }
         do {
@@ -52,7 +52,7 @@ public enum KeyedServices {
         var out = ToolOutput()
         var s = ReportSection("Password exposure")
         if count > 0 {
-            s.add("Result", "Seen \(count) times in known breaches – do not use", .critical)
+            s.add("Result", "Seen \(count) times in known breaches, do not use", .critical)
             out.findings.append(Finding(.critical, "Password appears in breach corpus (\(count)×)", "", source: "pwned"))
         } else {
             s.add("Result", "Not found in the Pwned Passwords corpus")
@@ -67,7 +67,7 @@ public enum KeyedServices {
     // MARK: Shodan (key)
 
     public static func shodanHost(_ ip: String, key: String) async -> ToolOutput {
-        var s = ReportSection("Shodan host – \(ip)")
+        var s = ReportSection("Shodan host: \(ip)")
         var out = ToolOutput()
         do {
             let raw = try await HTTP.json(try HTTP.url("https://api.shodan.io/shodan/host/\(HTTP.q(ip))?key=\(HTTP.q(key))"), timeout: 20)
@@ -101,7 +101,7 @@ public enum KeyedServices {
 
     public static func virusTotal(_ target: String, key: String) async -> ToolOutput {
         let isIP = IPv4.isIP(target)
-        var s = ReportSection("VirusTotal – \(target)")
+        var s = ReportSection("VirusTotal: \(target)")
         do {
             let raw = try await HTTP.json(try HTTP.url("https://www.virustotal.com/api/v3/\(isIP ? "ip_addresses" : "domains")/\(HTTP.q(target))"),
                                           headers: ["x-apikey": key], timeout: 20)

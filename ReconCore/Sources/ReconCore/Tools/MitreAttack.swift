@@ -67,7 +67,7 @@ public enum MitreAttack {
         if let t = technique(q) { return detail(t) }
         // Tactic id → techniques in it
         if let ta = tactic(q) {
-            var s = ReportSection("\(ta.id) — \(ta.name)", note: ta.summary)
+            var s = ReportSection("\(ta.id): \(ta.name)", note: ta.summary)
             for t in techniques(in: ta.id) { s.add(t.id, t.name) }
             return ToolOutput(sections: [s])
         }
@@ -79,13 +79,13 @@ public enum MitreAttack {
             }
             var out = ToolOutput()
             var s = ReportSection("Matches for \u{201c}\(q)\u{201d} (\(hits.count))")
-            for t in hits.prefix(60) { s.add(t.id, "\(t.name) — \(t.tactics.compactMap { tactic($0)?.name }.joined(separator: ", "))") }
+            for t in hits.prefix(60) { s.add(t.id, "\(t.name): \(t.tactics.compactMap { tactic($0)?.name }.joined(separator: ", "))") }
             out.sections.append(s)
             return out
         }
         // Empty → the matrix overview
         var out = ToolOutput()
-        var s = ReportSection("MITRE ATT&CK — Enterprise tactics", note: "Enter a tactic id (TA0001), technique id (T1059) or keyword. \(techniques.count) techniques covered.")
+        var s = ReportSection("MITRE ATT&CK: Enterprise tactics", note: "Enter a tactic id (TA0001), technique id (T1059) or keyword. \(techniques.count) techniques covered.")
         for ta in tactics { s.add("\(ta.id) · \(ta.name)", "\(techniques(in: ta.id).count) techniques") }
         out.sections.append(s)
         return out
@@ -93,7 +93,7 @@ public enum MitreAttack {
 
     static func detail(_ t: Technique) -> ToolOutput {
         let tacticNames = t.tactics.compactMap { tactic($0)?.name }.joined(separator: ", ")
-        var s = ReportSection("\(t.id) — \(t.name)", note: "Tactic: \(tacticNames)")
+        var s = ReportSection("\(t.id): \(t.name)", note: "Tactic: \(tacticNames)")
         s.add("What", t.summary)
         s.add("Detect", t.detection, .low)
         s.add("Mitigate", t.mitigation, .low)

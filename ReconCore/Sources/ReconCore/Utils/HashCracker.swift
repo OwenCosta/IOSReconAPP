@@ -62,7 +62,7 @@ public enum HashCracker {
             s.add("CRACKED", "\"\(plain)\"", .critical)
             out.findings.append(Finding(.critical, "\(kind.rawValue) hash cracked: \"\(plain)\"", source: "ctf"))
         } else {
-            s.add("Result", "not found in the built-in dictionary or PIN space — add a wordlist via ::", .info)
+            s.add("Result", "not found in the built-in dictionary or PIN space, add a wordlist via ::", .info)
         }
         out.sections = [s]
         return out

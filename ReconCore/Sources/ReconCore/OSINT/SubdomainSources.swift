@@ -166,7 +166,7 @@ public enum SubdomainSources {
         out.findings += await Subdomains.takeoverCandidates(hits)
         if names.isEmpty {
             out.sections.append(ReportSection("No results", items: [
-                ReportItem("Hint", "Nothing public was found. A brand-new or private-only subdomain may never appear in CT logs or passive DNS — try the brute-force tool, or check the exact name directly in DNS Records.", .low)]))
+                ReportItem("Hint", "Nothing public was found. A brand-new or private-only subdomain may never appear in CT logs or passive DNS. Try the brute-force tool, or check the exact name directly in DNS Records.", .low)]))
         }
         return out
     }

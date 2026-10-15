@@ -14,7 +14,7 @@ public enum Subdomains {
                                   ctx: ToolContext = .silent) async -> [SubdomainHit] {
         let probe = "zz\(UInt32.random(in: 100_000...999_999))-nx"
         let wildcardIPs = Set(await DNSClient.resolveIPs("\(probe).\(domain)"))
-        if !wildcardIPs.isEmpty { ctx.log("Wildcard DNS detected (\(wildcardIPs.sorted().joined(separator: ", "))) – filtering") }
+        if !wildcardIPs.isEmpty { ctx.log("Wildcard DNS detected (\(wildcardIPs.sorted().joined(separator: ", "))), filtering") }
 
         let counter = Counter()
         let total = words.count

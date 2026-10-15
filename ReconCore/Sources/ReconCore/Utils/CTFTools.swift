@@ -353,7 +353,7 @@ public enum MagicDecoder {
         let hits = solve(text)
         var s = ReportSection("Magic decode", note: "Recursively tries Base64/32, hex, binary, decimal, URL, ROT13 and reverse.")
         if hits.isEmpty {
-            s.add("Result", "nothing decoded — input may already be plaintext or an unsupported format", .low)
+            s.add("Result", "nothing decoded, input may already be plaintext or an unsupported format", .low)
         }
         for (i, h) in hits.enumerated() {
             let label = h.chain.joined(separator: " → ")
@@ -389,7 +389,7 @@ public enum XORTools {
             String(format: "0x%02X (%d%@)", k, k, (k >= 33 && k < 127) ? " '\(Character(UnicodeScalar(k)))'" : "")
         }
         var out = ToolOutput()
-        var s = ReportSection("Single-byte XOR — top candidates",
+        var s = ReportSection("Single-byte XOR: top candidates",
                               note: "Tried all 256 keys on \(bytes.count) bytes, ranked by English-likeness.")
         // Any key that reveals a flag is reported, even if its English score is low.
         var shown = Set<UInt8>()

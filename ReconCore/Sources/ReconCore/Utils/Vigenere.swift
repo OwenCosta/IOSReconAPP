@@ -123,7 +123,7 @@ public enum Vigenere {
             let cipher = String(input[..<bar.lowerBound]).trimmed()
             let key = String(input[bar.upperBound...]).trimmed()
             let pt = decrypt(cipher, key: key)
-            var s = ReportSection("Vigenère decrypt — key \"\(key.uppercased())\"")
+            var s = ReportSection("Vigenère decrypt: key \"\(key.uppercased())\"")
             s.add("Plaintext", pt, FlagHunter.find(in: pt).isEmpty ? .info : .high)
             for f in FlagHunter.find(in: pt) { out.findings.append(Finding(.high, "Possible flag: \(f)", "Vigenère key \(key)", source: "ctf")) }
             out.sections = [s]

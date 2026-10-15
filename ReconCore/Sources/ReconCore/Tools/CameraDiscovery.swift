@@ -19,7 +19,7 @@ public enum CameraDiscovery {
         var hosts: [String: Hit] = [:]
 
         var onvifSection = ReportSection("WS-Discovery / ONVIF (\(onvifHits.count) found)",
-                                         note: "Cameras announce themselves over multicast — no scanning or address guessing needed. Only reaches this subnet.")
+                                         note: "Cameras announce themselves over multicast: no scanning or address guessing needed. Only reaches this subnet.")
         if onvifHits.isEmpty { onvifSection.add("Result", "no ONVIF/WS-Discovery devices responded in \(Int(duration))s", .info) }
         for d in onvifHits {
             guard let host = d.host else { continue }
@@ -30,17 +30,17 @@ public enum CameraDiscovery {
         }
         out.sections.append(onvifSection)
 
-        var mdnsSection = ReportSection("mDNS / Bonjour — camera-sounding services (\(mdnsHits.count))")
+        var mdnsSection = ReportSection("mDNS / Bonjour: camera-sounding services (\(mdnsHits.count))")
         if mdnsHits.isEmpty { mdnsSection.add("Result", "no camera-like mDNS services found", .info) }
         for hit in mdnsHits {
-            mdnsSection.add(hit.host, "\(hit.label) — \(hit.type)")
+            mdnsSection.add(hit.host, "\(hit.label) (\(hit.type))")
             hosts[hit.host] = Hit(host: hit.host, method: "mDNS", label: hit.label)
         }
         out.sections.append(mdnsSection)
 
         guard !hosts.isEmpty else {
             out.sections.append(ReportSection("Next steps", items: [
-                ReportItem("No cameras auto-discovered", "Try IP Camera Recon with a specific IP, or re-run while on the camera's own Wi-Fi/VLAN — WS-Discovery and mDNS only reach the local subnet.", .low)
+                ReportItem("No cameras auto-discovered", "Try IP Camera Recon with a specific IP, or re-run while on the camera's own Wi-Fi/VLAN. WS-Discovery and mDNS only reach the local subnet.", .low)
             ]))
             return out
         }
@@ -49,7 +49,7 @@ public enum CameraDiscovery {
         let recon = await boundedMap(Array(hosts.values.prefix(8)), limit: 4) { hit in (hit, await CameraRecon.run(hit.host)) }
         for (hit, result) in recon {
             var merged = result
-            if !merged.sections.isEmpty { merged.sections[0].title = "\(hit.host) — found via \(hit.method)" }
+            if !merged.sections.isEmpty { merged.sections[0].title = "\(hit.host), found via \(hit.method)" }
             out.sections.append(contentsOf: merged.sections)
             out.findings.append(contentsOf: merged.findings)
         }

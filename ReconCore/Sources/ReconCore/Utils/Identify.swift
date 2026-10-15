@@ -65,12 +65,12 @@ public enum Identify {
         }
 
         if !FlagHunter.find(in: s).isEmpty {
-            add("Already contains a flag pattern", "→ done — copy it", .high)
+            add("Already contains a flag pattern", "→ done, copy it", .high)
         }
         if guesses.isEmpty {
             let e = SecretScanner.entropy(s)
-            if e > 4.5 { add("High-entropy — likely encrypted, compressed, or random", "→ XOR Brute-force, or inspect as Hex Dump", .low) }
-            else { add("No strong signal — may be plaintext or an unknown scheme", "→ try Magic Decoder", .low) }
+            if e > 4.5 { add("High-entropy: likely encrypted, compressed, or random", "→ XOR Brute-force, or inspect as Hex Dump", .low) }
+            else { add("No strong signal: may be plaintext or an unknown scheme", "→ try Magic Decoder", .low) }
         }
 
         var res = ReportSection("Likely identity", note: "Best-guess classification and the tool to reach for.")

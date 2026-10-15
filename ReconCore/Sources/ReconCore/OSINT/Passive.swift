@@ -70,7 +70,7 @@ public enum Wayback {
         let juicy = all.filter { u in let l = u.lowercased(); return interesting.contains { l.contains($0) } }
         let withParams = all.filter { $0.contains("?") && $0.contains("=") }
 
-        var summary = ReportSection("Wayback Machine – \(domain)")
+        var summary = ReportSection("Wayback Machine: \(domain)")
         summary.add("Archived URLs (sampled)", "\(all.count)")
         summary.add("Distinct hosts", "\(hosts.count)")
         summary.add("Interesting URLs", "\(juicy.count)", juicy.isEmpty ? .info : .low)

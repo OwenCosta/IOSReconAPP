@@ -187,11 +187,11 @@ public enum FullRecon {
                     }
                 }
                 for h in hostResults {
-                    var s = ReportSection("Open ports – \(h.host)",
+                    var s = ReportSection("Open ports: \(h.host)",
                                           note: "\(h.closedCount) closed, \(h.filteredCount) filtered/no-response. TCP connect scan.")
                     if h.likelyProxyInterference {
                         // Don't emit per-port findings we can't trust.
-                        s.add("⚠︎ Unreliable", "\(h.openPorts.count)/\(h.scannedCount) ports reported open — a carrier NAT / captive portal / proxy is likely answering for every port. Re-scan on Wi-Fi.", .high)
+                        s.add("⚠︎ Unreliable", "\(h.openPorts.count)/\(h.scannedCount) ports reported open. A carrier NAT / captive portal / proxy is likely answering for every port. Re-scan on Wi-Fi.", .high)
                         report.findings.append(Finding(.medium, "Port scan of \(h.host) unreliable (proxy/NAT interference)", "Nearly every probed port reported open.", source: "portscan"))
                         cont.yield(.finding(report.findings.last!))
                     } else {
@@ -231,7 +231,7 @@ public enum FullRecon {
     }
 
     public static func summarize(_ report: ReconReport) -> ReportSection {
-        var s = ReportSection("Executive summary – \(report.target)")
+        var s = ReportSection("Executive summary: \(report.target)")
         var counts: [Severity: Int] = [:]
         for f in report.findings { counts[f.severity, default: 0] += 1 }
         let weights: [Severity: Int] = [.critical: 25, .high: 12, .medium: 5, .low: 1, .info: 0]

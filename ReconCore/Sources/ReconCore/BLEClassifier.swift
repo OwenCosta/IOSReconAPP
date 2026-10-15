@@ -73,12 +73,12 @@ public enum BLEClassifier {
 
         if anyName(cameraNames) || v.contains("wyze") {
             return Result(category: Category.camera.rawValue, icon: Category.camera.icon, isCamera: true,
-                          note: "Possible camera nearby — many cams beacon over BLE (especially in setup/pairing mode).")
+                          note: "Possible camera nearby: many cams beacon over BLE (especially in setup/pairing mode).")
         }
         if anyName(trackerNames) { return r(.tracker) }
         if anyName(audioNames) { return r(.audio) }
         if anyName(wearableNames) { return r(.wearable) }
-        if anyName(smartHomeNames) { return r(.smartHome, note: "IoT device — check if it also has a web/RTSP interface once on the network.") }
+        if anyName(smartHomeNames) { return r(.smartHome, note: "IoT device, check if it also has a web/RTSP interface once on the network.") }
         if anyName(computerNames) { return r(.computer) }
 
         // Service-UUID hints.

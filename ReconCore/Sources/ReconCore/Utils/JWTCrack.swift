@@ -72,15 +72,15 @@ public enum JWTCrack {
         }
         var s = ReportSection("Secret cracking", note: "Tried \(list.count) candidates against the real HMAC signature.")
         if !result.alg.uppercased().hasPrefix("HS") {
-            s.add("Algorithm", "\(result.alg) — asymmetric, not brute-forceable (needs the private key)", .info)
+            s.add("Algorithm", "\(result.alg): asymmetric, not brute-forceable (needs the private key)", .info)
         } else if mac(alg: result.alg, key: [0], message: [0]) == nil {
-            s.add("Algorithm", "\(result.alg) — unsupported on this platform build", .low)
+            s.add("Algorithm", "\(result.alg): unsupported on this platform build", .low)
         } else if let secret = result.secret {
             s.add("CRACKED", "secret = \"\(secret)\"", .critical)
             out.findings.append(Finding(.critical, "JWT signed with weak secret: \"\(secret)\"",
                                         "The token can be forged. Rotate the signing key to a long random value.", source: "jwt"))
         } else {
-            s.add("Result", "no match in \(list.count) candidates — try a larger wordlist with '::'", .info)
+            s.add("Result", "no match in \(list.count) candidates, try a larger wordlist with '::'", .info)
         }
         out.sections.append(s)
         return out

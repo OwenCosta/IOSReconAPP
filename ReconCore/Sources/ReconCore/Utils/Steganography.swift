@@ -36,7 +36,7 @@ public enum Steganography {
             return ToolOutput(sections: [ReportSection("Hide text", items: [ReportItem("Usage", "secret message ::cover text", .low)])])
         }
         let stego = hide(secret: secret, in: cover)
-        var s = ReportSection("Hidden message", note: "Copy the line below — the secret is encoded in invisible zero-width characters.")
+        var s = ReportSection("Hidden message", note: "Copy the line below: the secret is encoded in invisible zero-width characters.")
         s.add("Carrier (copy this)", stego)
         s.add("Length", "\(stego.count) chars (\(cover.count) visible)")
         s.add("Reveal with", "the Reveal Hidden Text tool")

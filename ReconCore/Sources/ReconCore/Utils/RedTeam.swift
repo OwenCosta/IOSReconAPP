@@ -63,7 +63,7 @@ public enum RedTeam {
         let cmd = input.trimmed()
         guard !cmd.isEmpty else { return ToolOutput(sections: [ReportSection("PowerShell encoder", items: [ReportItem("Usage", "enter a PowerShell command to encode", .low)])]) }
         let enc = powershellEncode(cmd)
-        var s = ReportSection("PowerShell -EncodedCommand", note: "UTF-16LE then Base64 — bypasses quoting/escaping on the command line.")
+        var s = ReportSection("PowerShell -EncodedCommand", note: "UTF-16LE then Base64, bypasses quoting/escaping on the command line.")
         s.add("Encoded", enc)
         s.add("Full command", "powershell -nop -w hidden -enc \(enc)")
         return ToolOutput(sections: [s])
@@ -101,7 +101,7 @@ public enum RedTeam {
         let matches = lookupCreds(input)
         var s = ReportSection("Default credentials (\(matches.count))",
                               note: "Common factory/default logins. Only use against systems you are authorised to test.")
-        if matches.isEmpty { s.add("Result", "no product matched “\(input.trimmed())” — try a shorter term", .low) }
+        if matches.isEmpty { s.add("Result", "no product matched “\(input.trimmed())”. Try a shorter term", .low) }
         for m in matches.prefix(80) { s.add(m.product, "\(m.user) : \(m.pass)", .medium) }
         return ToolOutput(sections: [s])
     }

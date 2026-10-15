@@ -90,7 +90,7 @@ public enum PayloadLibrary {
 public enum NmapBuilder {
     public static func run(_ input: String) -> ToolOutput {
         let t = TargetParser.stripToHost(input).isEmpty ? "TARGET" : input.trimmed()
-        var s = ReportSection("Nmap commands – \(t)", note: "iOS can't run nmap (no raw sockets); copy these to a laptop. Only scan authorised targets.")
+        var s = ReportSection("Nmap commands: \(t)", note: "iOS can't run nmap (no raw sockets); copy these to a laptop. Only scan authorised targets.")
         s.add("Quick top-1000", "nmap -T4 \(t)")
         s.add("Service + version", "nmap -sV -sC -T4 \(t)")
         s.add("All TCP ports", "nmap -p- -T4 --min-rate 2000 \(t)")
@@ -112,7 +112,7 @@ public enum CrackCommands {
         let h = input.trimmed()
         var s = ReportSection("Cracking commands", note: "iOS can't run hashcat/John; copy to a laptop. hashcat modes inferred from the hash shape.")
         let modes = HashIdentifier.identify(h).items.filter { $0.label == "Candidate" }.map(\.value)
-        if modes.isEmpty { s.add("Hash type", "unrecognised — see the Hash Identifier", .low) }
+        if modes.isEmpty { s.add("Hash type", "unrecognised, see the Hash Identifier", .low) }
         for m in modes.prefix(4) {
             s.add("Likely", m)
             if let mode = m.range(of: #"-m (\S+)"#, options: .regularExpression).map({ String(m[$0]).replacingOccurrences(of: "-m ", with: "") }),
@@ -149,7 +149,7 @@ public enum UsernameGen {
         }
         let domain = parts.count > 1 ? parts[1].trimmed() : nil
         let perms = permutations(first: nameParts[0], last: nameParts.last!)
-        var s = ReportSection("Username candidates (\(perms.count))", note: "Common corporate username/email formats — for password-spraying candidate lists on authorised engagements.")
+        var s = ReportSection("Username candidates (\(perms.count))", note: "Common corporate username/email formats, for password-spraying candidate lists on authorised engagements.")
         for p in perms { s.add("", domain.map { "\(p)@\($0)" } ?? p) }
         return ToolOutput(sections: [s])
     }

@@ -49,7 +49,7 @@ public enum FaviconHash {
             return ToolOutput(sections: [ReportSection("Favicon hash", items: [ReportItem("Result", "no favicon found at \(url.absoluteString)", .low)])])
         }
         let h = hash(r.body)
-        var s = ReportSection("Favicon hash", note: "Pivot: find other hosts serving the same favicon — often the same org or software.")
+        var s = ReportSection("Favicon hash", note: "Pivot: find other hosts serving the same favicon, often the same org or software.")
         s.add("Shodan hash", "\(h)")
         s.add("Shodan query", "http.favicon.hash:\(h)")
         s.add("Censys query", "services.http.response.favicons.md5_hash (see Censys docs)")
@@ -155,7 +155,7 @@ public enum Dorks {
         guard let d = TargetParser.domain(from: input) else {
             return ToolOutput(sections: [ReportSection("Google dorks", items: [ReportItem("Usage", "enter a domain, e.g. example.com", .low)])])
         }
-        var s = ReportSection("Google dorks – \(d)", note: "Paste each into Google (or Bing). Passive OSINT against the search index, not the target.")
+        var s = ReportSection("Google dorks: \(d)", note: "Paste each into Google (or Bing). Passive OSINT against the search index, not the target.")
         for (label, dork) in forDomain(d) { s.add(label, dork) }
         return ToolOutput(sections: [s])
     }

@@ -139,7 +139,7 @@ public enum CameraRecon {
         if let s = server { summary.add("Server", s) }
         if let r = realm { summary.add("Auth realm", r, .low) }
         if let t = title, !t.isEmpty { summary.add("Title", t) }
-        summary.add("Identified", matches.isEmpty ? "unknown brand — using generic lists" : matches.map(\.name).joined(separator: ", "),
+        summary.add("Identified", matches.isEmpty ? "unknown brand, using generic lists" : matches.map(\.name).joined(separator: ", "),
                     matches.isEmpty ? .info : .medium)
         out.sections.append(summary)
 
@@ -161,7 +161,7 @@ public enum CameraRecon {
             ports.add(brand.name, brand.ports.map(String.init).joined(separator: ", "))
             out.sections.append(ports)
         } else {
-            var creds = ReportSection("Generic camera credentials", note: "Brand unknown — try the most common camera/NVR logins.")
+            var creds = ReportSection("Generic camera credentials", note: "Brand unknown. Try the most common camera/NVR logins.")
             for (u, p) in genericCreds { creds.add(u, p.isEmpty ? "(blank)" : p, .medium) }
             out.sections.append(creds)
             var streams = ReportSection("Generic RTSP URLs", note: "Try these paths on port 554.")
@@ -171,7 +171,7 @@ public enum CameraRecon {
 
         var tips = ReportSection("Next steps", note: nil)
         tips.add("Port scan", "Scan \(host) for \(commonPorts.map(String.init).joined(separator: ", ")) in the Scanner tab")
-        tips.add("ONVIF", "Many cameras expose http://\(host)/onvif/device_service (SOAP) — enumerate with an ONVIF client")
+        tips.add("ONVIF", "Many cameras expose http://\(host)/onvif/device_service (SOAP), enumerate with an ONVIF client")
         tips.add("Snapshot", "Hikvision: /ISAPI/Streaming/channels/101/picture · Dahua: /cgi-bin/snapshot.cgi")
         tips.add("Brute", "Feed the default creds above into hydra/medusa for rtsp/http-get on a laptop if a single try fails")
         out.sections.append(tips)
@@ -196,13 +196,13 @@ public enum WiFiRecon {
         var out = ToolOutput()
         let gw = TargetParser.stripToHost(input)
 
-        var reality = ReportSection("Wi-Fi on iOS", note: "Honest capability list — iOS sandboxes Wi-Fi heavily.")
+        var reality = ReportSection("Wi-Fi on iOS", note: "Honest capability list: iOS sandboxes Wi-Fi heavily.")
         reality.add("Scanning", "Third-party apps CANNOT list nearby Wi-Fi networks or read SSID/BSSID (no entitlement for sideloaded apps).", .info)
-        reality.add("Monitor mode", "Not possible — no raw 802.11, no deauth, no packet capture, no evil-twin on iOS.", .info)
+        reality.add("Monitor mode", "Not possible: no raw 802.11, no deauth, no packet capture, no evil-twin on iOS.", .info)
         reality.add("What works", "Scan the LAN you're joined to (Scan tab), discover hosts/services, and attack the router over IP.", .low)
         out.sections.append(reality)
 
-        var attack = ReportSection(gw.isEmpty ? "Router attack checklist" : "Router attack — \(gw)",
+        var attack = ReportSection(gw.isEmpty ? "Router attack checklist" : "Router attack: \(gw)",
                                    note: "Point this at your gateway (see the Home dashboard for its IP).")
         if !gw.isEmpty {
             attack.add("Admin panel", "http://\(gw)/  ·  https://\(gw)/  ·  http://\(gw):8080/")

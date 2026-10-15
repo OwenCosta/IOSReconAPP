@@ -82,7 +82,7 @@ public enum UsernameSearch {
             }
         }
         var found = ReportSection("Profiles found for “\(user)”",
-                                  note: "Presence only means the handle is registered – not that it belongs to the same person. Verify manually.")
+                                  note: "Presence only means the handle is registered, not that it belongs to the same person. Verify manually.")
         var unknown = ReportSection("Could not determine")
         for (site, hit) in results.sorted(by: { $0.0.name < $1.0.name }) {
             let u = site.url.replacingOccurrences(of: "{}", with: user)
@@ -113,10 +113,10 @@ public enum EmailOSINT {
         let local = String(email.split(separator: "@").first ?? "")
         var out = ToolOutput()
 
-        var basics = ReportSection("Email – \(email)")
+        var basics = ReportSection("Email: \(email)")
         async let mx = DNSClient.records(domain, .MX)
         let mxs = await mx
-        basics.add("Mail servers", mxs.isEmpty ? "none – address cannot receive mail" : mxs.map(\.data).joined(separator: "\n"), mxs.isEmpty ? .high : .info)
+        basics.add("Mail servers", mxs.isEmpty ? "none: address cannot receive mail" : mxs.map(\.data).joined(separator: "\n"), mxs.isEmpty ? .high : .info)
         if disposable.contains(domain) { basics.add("Disposable provider", "yes", .medium) }
         let free = ["gmail.com", "outlook.com", "hotmail.com", "yahoo.com", "icloud.com", "proton.me", "protonmail.com", "aol.com"].contains(domain)
         basics.add("Provider type", free ? "free consumer mailbox" : "custom / corporate domain")
@@ -160,7 +160,7 @@ public enum EmailOSINT {
                 }
                 out.sections.append(s)
             } else if r.status == 429 {
-                out.sections.append(ReportSection("EmailRep reputation", items: [ReportItem("Status", "rate-limited (free tier) – try again later", .low)]))
+                out.sections.append(ReportSection("EmailRep reputation", items: [ReportItem("Status", "rate-limited (free tier), try again later", .low)]))
             }
         }
 
@@ -194,7 +194,7 @@ public enum GitHubOSINT {
         guard let prof = p as? [String: Any] else { throw ReconError.parse("GitHub profile") }
 
         var out = ToolOutput()
-        var s = ReportSection("GitHub – \(prof.str("login") ?? user)")
+        var s = ReportSection("GitHub: \(prof.str("login") ?? user)")
         for (k, label) in [("name", "Name"), ("company", "Company"), ("location", "Location"), ("email", "Public email"),
                            ("blog", "Website"), ("bio", "Bio"), ("twitter_username", "Twitter/X"), ("created_at", "Created"),
                            ("type", "Account type")] {
@@ -228,7 +228,7 @@ public enum GitHubOSINT {
             var rs = ReportSection("Recently pushed repositories (\(list.count))")
             var langs: [String: Int] = [:]
             for r in list.prefix(40) {
-                let lang = r.str("language") ?? "–"
+                let lang = r.str("language") ?? "unknown"
                 langs[lang, default: 0] += 1
                 rs.add(r.str("name") ?? "", "\(lang) · ★\(r.int("stargazers_count") ?? 0) · pushed \(r.str("pushed_at") ?? "")" +
                        ((r["fork"] as? Bool) == true ? " · fork" : ""))

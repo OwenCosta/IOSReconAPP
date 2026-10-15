@@ -103,7 +103,7 @@ public struct ToolOutput: Sendable {
         if !findings.isEmpty {
             lines.append("## Findings")
             for f in findings {
-                lines.append("[\(f.severity.rawValue)] \(f.title)" + (f.detail.isEmpty ? "" : " — \(f.detail)"))
+                lines.append("[\(f.severity.rawValue)] \(f.title)" + (f.detail.isEmpty ? "" : ": \(f.detail)"))
             }
         }
         if lines.isEmpty { return "(no output)" }

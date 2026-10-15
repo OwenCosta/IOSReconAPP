@@ -165,7 +165,7 @@ public enum PayloadEncoder {
             return ToolOutput(sections: [ReportSection("Payload encoder", items: [
                 ReportItem("Usage", "paste a payload, e.g. <script>alert(1)</script> or ' OR 1=1-- -", .low)])])
         }
-        var s = ReportSection("Encodings — \(p.prefix(60))", note: "For getting an authorised payload past input filters / WAFs. Try each where the app decodes once or twice.")
+        var s = ReportSection("Encodings: \(p.prefix(60))", note: "For getting an authorised payload past input filters / WAFs. Try each where the app decodes once or twice.")
         s.add("URL (full)", fullPercent(p))
         s.add("URL (double)", doublePercent(p))
         s.add("HTML decimal", htmlDecimal(p))

@@ -10,7 +10,7 @@ public enum RDAP {
         let raw = try await HTTP.json(url, headers: ["Accept": "application/rdap+json"], timeout: 20)
         guard let o = raw as? [String: Any] else { throw ReconError.parse("RDAP") }
         var out = ToolOutput()
-        var s = ReportSection("Registration – \(o.str("ldhName") ?? name)")
+        var s = ReportSection("Registration: \(o.str("ldhName") ?? name)")
         if let h = o.str("handle") { s.add("Handle", h) }
         let status = o.strs("status")
         if !status.isEmpty { s.add("Status", status.joined(separator: ", ")) }
@@ -58,7 +58,7 @@ public enum RDAP {
             s.add("DNSSEC", signed ? "delegation signed" : "unsigned", signed ? .info : .low)
         }
         if status.contains(where: { $0.lowercased().contains("transfer prohibited") }) == false, !status.isEmpty {
-            s.add("Lock", "no clientTransferProhibited – domain is not registrar-locked", .low)
+            s.add("Lock", "no clientTransferProhibited: domain is not registrar-locked", .low)
         }
         out.sections = [s]
         return out
@@ -68,10 +68,10 @@ public enum RDAP {
         let url = try HTTP.url("https://rdap.org/ip/\(HTTP.q(addr))")
         let raw = try await HTTP.json(url, headers: ["Accept": "application/rdap+json"], timeout: 20)
         guard let o = raw as? [String: Any] else { throw ReconError.parse("RDAP") }
-        var s = ReportSection("Network allocation – \(addr)")
+        var s = ReportSection("Network allocation: \(addr)")
         if let n = o.str("name") { s.add("Network name", n) }
         if let h = o.str("handle") { s.add("Handle", h) }
-        if let a = o.str("startAddress"), let b = o.str("endAddress") { s.add("Range", "\(a) – \(b)") }
+        if let a = o.str("startAddress"), let b = o.str("endAddress") { s.add("Range", "\(a) to \(b)") }
         if let c = o.str("country") { s.add("Country", c) }
         if let t = o.str("type") { s.add("Type", t) }
         if let cidrs = o.dicts("cidr0_cidrs") as [[String: Any]]?, !cidrs.isEmpty {
@@ -129,7 +129,7 @@ public enum IPIntel {
         async let rdns = DNSClient.reverse(ip)
         async let idb = internetDB(ip)
         var out = ToolOutput()
-        var s = ReportSection("IP profile – \(ip)")
+        var s = ReportSection("IP profile: \(ip)")
         if let g = await geoR {
             s.add("Location", [g.city, g.region, g.country].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", "))
             if let a = g.asn { s.add("ASN", a) }
@@ -141,7 +141,7 @@ public enum IPIntel {
         let ptr = await rdns
         s.add("Reverse DNS", ptr.isEmpty ? "none" : ptr.joined(separator: ", "))
         if let d = await idb {
-            var p = ReportSection("Shodan InternetDB – \(ip)", note: "Passive data: no packets were sent to the target.")
+            var p = ReportSection("Shodan InternetDB: \(ip)", note: "Passive data: no packets were sent to the target.")
             p.add("Known open ports", d.ports.isEmpty ? "none indexed" : d.ports.sorted().map { "\($0) (\(ServiceDB.name(port: UInt16(clamping: $0))))" }.joined(separator: ", "))
             for port in d.ports { if let r = ServiceDB.risk(port: UInt16(clamping: port)), r.severity >= .high {
                 out.findings.append(Finding(r.severity, "\(ip): port \(port) indexed as open", r.why, source: "shodan")) } }

@@ -103,7 +103,7 @@ public enum ContentDiscovery {
     public static func output(base: URL, ctx: ToolContext = .silent) async -> ToolOutput {
         let found = await scan(base: base, ctx: ctx)
         var out = ToolOutput()
-        var s = ReportSection("Content discovery – \(found.count) of \(probes.count) probes hit",
+        var s = ReportSection("Content discovery: \(found.count) of \(probes.count) probes hit",
                               note: "Checked \(probes.count) well-known paths with content verification (soft-404 aware).")
         for r in found {
             s.add("\(r.path)  [\(r.status), \(r.size) B]", r.title + (r.excerpt.isEmpty ? "" : "\n\(r.excerpt)"), r.severity)
@@ -122,7 +122,7 @@ public enum CORSCheck {
     public static func run(_ input: String) async throws -> ToolOutput {
         guard let url = WebRecon.normalizeURL(input) else { throw ReconError.invalidInput("bad URL") }
         var out = ToolOutput()
-        var s = ReportSection("CORS policy – \(url.host ?? "")")
+        var s = ReportSection("CORS policy: \(url.host ?? "")")
         let origins = ["https://evil.example", "null", "https://\(url.host ?? "x").evil.example"]
         for origin in origins {
             let r = try await HTTP.request(url, headers: ["Origin": origin], timeout: 10, followRedirects: true, maxBytes: 20_000)
@@ -134,7 +134,7 @@ public enum CORSCheck {
                 var verdict = "ACAO: \(a)"
                 if reflected && acac { sev = .critical; verdict += "  + credentials=true → any origin can read authenticated responses" }
                 else if reflected { sev = .medium; verdict += "  (origin reflected)" }
-                else if a == "*" && acac { sev = .medium; verdict += "  (wildcard with credentials – browsers block, but misconfigured)" }
+                else if a == "*" && acac { sev = .medium; verdict += "  (wildcard with credentials, browsers block, but misconfigured)" }
                 else if a == "*" { sev = .low }
                 s.add("Origin: \(origin)", verdict, sev)
                 if sev >= .medium {

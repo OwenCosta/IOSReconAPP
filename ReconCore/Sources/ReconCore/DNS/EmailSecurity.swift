@@ -56,9 +56,9 @@ public enum EmailSecurity {
             var verdict = "strict (-all)"
             switch spf.all {
             case "-all": break
-            case "~all": sev = .low; verdict = "softfail (~all) – spoofed mail is flagged, not rejected"
-            case "?all": sev = .medium; verdict = "neutral (?all) – SPF gives no protection"
-            case "+all": sev = .critical; verdict = "+all – ANYONE may send as this domain"
+            case "~all": sev = .low; verdict = "softfail (~all): spoofed mail is flagged, not rejected"
+            case "?all": sev = .medium; verdict = "neutral (?all): SPF gives no protection"
+            case "+all": sev = .critical; verdict = "+all: ANYONE may send as this domain"
             default:
                 if spf.record.lowercased().contains("redirect=") { verdict = "uses redirect= (policy delegated to another domain)" }
                 else { sev = .medium; verdict = "no terminating 'all' mechanism" }
@@ -66,7 +66,7 @@ public enum EmailSecurity {
             if spfRecords.count > 1 { sec.add("SPF", "multiple SPF records (invalid per RFC 7208)", .medium) }
             sec.add("SPF", verdict, sev)
             sec.add("SPF record", spf.record)
-            if spf.includes.count > 6 { sec.add("SPF lookups", "\(spf.includes.count) includes – risk of exceeding the 10 DNS-lookup limit", .low) }
+            if spf.includes.count > 6 { sec.add("SPF lookups", "\(spf.includes.count) includes, risk of exceeding the 10 DNS-lookup limit", .low) }
             if sev >= .low { out.findings.append(Finding(sev, "Weak SPF policy on \(domain)", verdict, source: "email")) }
         } else if !mxRecords.isEmpty {
             sec.add("SPF", "missing", .medium)
@@ -99,7 +99,7 @@ public enum EmailSecurity {
 
         var dns = ReportSection("DNS hardening")
         let caaRecs = await caa
-        dns.add("CAA", caaRecs.isEmpty ? "no CAA – any CA may issue certificates" : caaRecs.map(\.data).joined(separator: "; "),
+        dns.add("CAA", caaRecs.isEmpty ? "no CAA: any CA may issue certificates" : caaRecs.map(\.data).joined(separator: "; "),
                 caaRecs.isEmpty ? .low : .info)
         let signed = (await dnskeyAnswer)?.authenticated ?? false
         dns.add("DNSSEC", signed ? "validated (AD bit set)" : "not validated / not signed", signed ? .info : .low)

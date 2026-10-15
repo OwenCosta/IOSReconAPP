@@ -147,7 +147,7 @@ public enum RSATool {
         var s = ReportSection("RSA", note: "Give any of n, e, p, q, d, c (ciphertext) as `key=value`, one per line (decimal or 0x…).")
 
         guard !v.isEmpty else {
-            s.add("Usage", "e.g.  n=3233  e=17  c=2790   — or  p=61  q=53  e=17  c=2790", .low)
+            s.add("Usage", "e.g.  n=3233  e=17  c=2790,  or  p=61  q=53  e=17  c=2790", .low)
             out.sections = [s]; return out
         }
 
@@ -166,7 +166,7 @@ public enum RSATool {
             } else if f.count > 2 {
                 s.add("Factors", f.map { "\($0)" }.joined(separator: " × "), .high)
             } else {
-                s.add("Factoring", "could not factor on-device — paste p and q (e.g. from factordb.com)", .low)
+                s.add("Factoring", "could not factor on-device, paste p and q (e.g. from factordb.com)", .low)
             }
         }
 
@@ -208,7 +208,7 @@ public enum RSATool {
                 // Tiny-exponent: if m^e < n the ciphertext is just m^e with no modular wrap.
                 let r = iroot(c, Int(e.description) ?? 3)
                 if powEq(r, Int(e.description) ?? 3, c) {
-                    s.add("Low-exponent attack", "c is a perfect e-th power — message not padded", .high)
+                    s.add("Low-exponent attack", "c is a perfect e-th power, message not padded", .high)
                     s.add("Recovered m", "\(r)")
                     if let text = asciiIfPrintable(r) { s.add("  text", text, .high) }
                 }
@@ -376,7 +376,7 @@ public enum RSATool {
             let pairs = keys.map { (c: $0.c!, n: $0.n) }
             if let m = hastad(pairs, e: ei) { reveal(m, "Håstad broadcast attack (e=\(ei))"); out.sections = [s]; return out }
         }
-        s.add("Result", "no multi-key attack applied — need same n with two exponents, or same small e across ≥e moduli", .low)
+        s.add("Result", "no multi-key attack applied, need same n with two exponents, or same small e across ≥e moduli", .low)
         out.sections = [s]
         return out
     }

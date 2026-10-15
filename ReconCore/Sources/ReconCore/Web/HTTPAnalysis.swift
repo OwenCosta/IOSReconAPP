@@ -85,7 +85,7 @@ public enum WebRecon {
             items.append(ReportItem("Content-Security-Policy", weak ? "present but allows unsafe-inline/eval/wildcards" : "present",
                                     weak ? .low : .info))
         } else {
-            items.append(ReportItem("Content-Security-Policy", "missing – no defence-in-depth against XSS", .medium))
+            items.append(ReportItem("Content-Security-Policy", "missing: no defence-in-depth against XSS", .medium))
         }
 
         if https {
@@ -101,7 +101,7 @@ public enum WebRecon {
                     items.append(ReportItem("Strict-Transport-Security", "max-age too short (\(age)s): \(hsts)", .low))
                 }
             } else {
-                items.append(ReportItem("Strict-Transport-Security", "missing – downgrade / SSL-strip possible", .medium))
+                items.append(ReportItem("Strict-Transport-Security", "missing: downgrade / SSL-strip possible", .medium))
             }
         } else {
             items.append(ReportItem("Transport", "page served over plain HTTP", .high))
@@ -113,7 +113,7 @@ public enum WebRecon {
         check("X-Content-Type-Options", weight: 10, present: h["x-content-type-options"]?.lowercased() == "nosniff",
               good: "nosniff", bad: "missing nosniff", badSeverity: .low)
         check("Referrer-Policy", weight: 10, present: h["referrer-policy"] != nil,
-              good: h["referrer-policy"] ?? "", bad: "missing – URLs may leak via Referer", badSeverity: .low)
+              good: h["referrer-policy"] ?? "", bad: "missing: URLs may leak via Referer", badSeverity: .low)
         check("Permissions-Policy", weight: 10, present: h["permissions-policy"] != nil || h["feature-policy"] != nil,
               good: "present", bad: "missing", badSeverity: .info)
         check("Cross-Origin isolation", weight: 10,
@@ -302,7 +302,7 @@ public enum WebRecon {
         }
 
         let g = gradeHeaders(h, https: https)
-        var hdr = ReportSection("Security headers – grade \(g.grade) (\(g.score)/100)")
+        var hdr = ReportSection("Security headers: grade \(g.grade) (\(g.score)/100)")
         hdr.items = g.items
         if g.grade == "D" || g.grade == "F" {
             out.findings.append(Finding(.medium, "Weak HTTP security headers (grade \(g.grade))", probe.finalURL.host ?? "", source: "web"))
@@ -324,7 +324,7 @@ public enum WebRecon {
             out.findings.append(Finding(.medium, "Insecure cookie flags: \(item.label)", item.value, source: "web"))
         }
 
-        var techSec = ReportSection("Technology fingerprint", note: "Heuristic — based on headers, cookies and page markers. Each line shows the evidence; verify before relying on it.")
+        var techSec = ReportSection("Technology fingerprint", note: "Heuristic: based on headers, cookies and page markers. Each line shows the evidence; verify before relying on it.")
         let techs = fingerprint(headers: h, cookies: probe.final.setCookies, body: probe.final.text)
         for t in techs { techSec.add(t.category, t.name + (t.version.map { " \($0)" } ?? "") + "   (\(t.evidence))") }
         if techs.isEmpty { techSec.add("Result", "nothing identified") }

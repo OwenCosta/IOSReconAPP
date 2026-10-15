@@ -34,7 +34,7 @@ public enum Homoglyph {
     public static func analyze(_ input: String) -> ToolOutput {
         let s = input.trimmed()
         var out = ToolOutput()
-        var sec = ReportSection("Homoglyph analysis", note: "Flags non-ASCII lookalikes and mixed scripts — the IDN homograph phishing trick.")
+        var sec = ReportSection("Homoglyph analysis", note: "Flags non-ASCII lookalikes and mixed scripts, the IDN homograph phishing trick.")
 
         var suspicious: [(Character, String)] = []
         var scripts = Set<String>()
@@ -51,13 +51,13 @@ public enum Homoglyph {
         sec.add("Scripts present", scripts.sorted().joined(separator: ", "), scripts.count > 1 ? .high : .info)
 
         if scripts.count > 1 {
-            sec.add("Verdict", "MIXED SCRIPTS — classic homograph spoofing", .high)
+            sec.add("Verdict", "MIXED SCRIPTS: classic homograph spoofing", .high)
             out.findings.append(Finding(.high, "Mixed-script string (possible homograph attack)", "Scripts: \(scripts.sorted().joined(separator: ", ")) · looks like \"\(skel)\"", source: "homoglyph"))
         } else if !suspicious.isEmpty {
             sec.add("Verdict", "Non-ASCII lookalikes present", .medium)
             out.findings.append(Finding(.medium, "Lookalike characters present", "Resembles \"\(skel)\"", source: "homoglyph"))
         } else {
-            sec.add("Verdict", "all ASCII — no homoglyphs", .info)
+            sec.add("Verdict", "all ASCII, no homoglyphs", .info)
         }
 
         if !suspicious.isEmpty {

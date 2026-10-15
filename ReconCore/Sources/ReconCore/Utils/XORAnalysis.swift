@@ -117,7 +117,7 @@ public enum XORAnalysis {
                 any = true
             }
         }
-        if !any { s.add("Result", "no readable fragments — try different cribs via ::word1 word2", .low) }
+        if !any { s.add("Result", "no readable fragments. Try different cribs via ::word1 word2", .low) }
         out.sections = [s]
         return out
     }

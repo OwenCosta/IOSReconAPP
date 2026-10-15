@@ -89,7 +89,7 @@ public enum ToolCatalog {
                               input: "Mystery blob", placeholder: "paste anything", multiline: true) { input, _ in
             Identify.run(input)
         })
-        tools.append(ToolSpec("rsa", "RSA Toolkit", "Factor n, recover d, decrypt c — with weak-key detection", icon: "lock.rectangle.stack", .ctf,
+        tools.append(ToolSpec("rsa", "RSA Toolkit", "Factor n, recover d, decrypt c, with weak-key detection", icon: "lock.rectangle.stack", .ctf,
                               input: "RSA parameters", placeholder: "n=3233\ne=17\nc=2790", multiline: true) { input, _ in
             RSATool.run(input)
         })
@@ -180,7 +180,7 @@ public enum ToolCatalog {
         tools.append(ToolSpec("dns-records", "DNS Records", "A, AAAA, CNAME, NS, MX, TXT, SOA, CAA over DoH", icon: "list.bullet.rectangle", .dns) { input, _ in
             let d = try hostOrIP(input)
             let recs = await DNSClient.allRecords(d)
-            var s = ReportSection("DNS records – \(d) (\(recs.count))")
+            var s = ReportSection("DNS records: \(d) (\(recs.count))")
             for r in recs.sorted(by: { ($0.type, $0.data) < ($1.type, $1.data) }) { s.add(r.type, "\(r.data)   (TTL \(r.ttl))") }
             if recs.isEmpty { s.add("Result", "no records / NXDOMAIN", .low) }
             return ToolOutput(sections: [s])
@@ -190,7 +190,7 @@ public enum ToolCatalog {
             let ip = input.trimmed()
             guard IPv4.isIP(ip) else { throw ReconError.invalidInput("enter an IPv4 or IPv6 address") }
             let names = await DNSClient.reverse(ip)
-            return single("PTR – \(ip)", names.isEmpty ? [ReportItem("Result", "no PTR record", .low)] : names.map { ReportItem("PTR", $0) })
+            return single("PTR: \(ip)", names.isEmpty ? [ReportItem("Result", "no PTR record", .low)] : names.map { ReportItem("PTR", $0) })
         })
         tools.append(ToolSpec("email-sec", "Email & DNS Security", "SPF, DKIM, DMARC, MTA-STS, CAA, DNSSEC", icon: "envelope.badge.shield.half.filled", .dns) { input, _ in
             await EmailSecurity.analyze(try domain(input))
@@ -198,15 +198,15 @@ public enum ToolCatalog {
         tools.append(ToolSpec("subdomains", "Subdomain Finder", "6 passive sources (crt.sh, CertSpotter, OTX, Anubis…) + resolve + takeover", icon: "list.bullet.indent", .dns) { input, ctx in
             await SubdomainSources.run(try domain(input), brute: false, ctx: ctx)
         })
-        tools.append(ToolSpec("subdomains-deep", "Subdomain Finder — Deep", "All passive sources plus a DoH brute-force pass (slower)", icon: "text.magnifyingglass", .dns) { input, ctx in
+        tools.append(ToolSpec("subdomains-deep", "Subdomain Finder: Deep", "All passive sources plus a DoH brute-force pass (slower)", icon: "text.magnifyingglass", .dns) { input, ctx in
             await SubdomainSources.run(try domain(input), brute: true, ctx: ctx)
         })
 
         // MARK: OSINT
-        tools.append(ToolSpec("whois-domain", "WHOIS / RDAP – Domain", "Registrar, dates, nameservers, status", icon: "doc.text.magnifyingglass", .osint) { input, _ in
+        tools.append(ToolSpec("whois-domain", "WHOIS / RDAP: Domain", "Registrar, dates, nameservers, status", icon: "doc.text.magnifyingglass", .osint) { input, _ in
             try await RDAP.domain(try domain(input))
         })
-        tools.append(ToolSpec("whois-ip", "WHOIS / RDAP – IP", "Network allocation, owner, CIDR", icon: "building.2", .osint,
+        tools.append(ToolSpec("whois-ip", "WHOIS / RDAP: IP", "Network allocation, owner, CIDR", icon: "building.2", .osint,
                               input: "IP address", placeholder: "1.1.1.1") { input, _ in
             let ip = input.trimmed()
             guard IPv4.isIP(ip) else { throw ReconError.invalidInput("enter an IP address") }
@@ -227,7 +227,7 @@ public enum ToolCatalog {
         tools.append(ToolSpec("wayback", "Wayback Machine Mining", "Historic URLs, hosts, backups & admin paths", icon: "clock.arrow.circlepath", .osint) { input, _ in
             try await Wayback.run(try domain(input))
         })
-        tools.append(ToolSpec("favicon", "Favicon Hash", "Shodan/Censys pivot — find hosts with the same favicon", icon: "app.badge", .osint,
+        tools.append(ToolSpec("favicon", "Favicon Hash", "Shodan/Censys pivot: find hosts with the same favicon", icon: "app.badge", .osint,
                               input: "URL or domain", placeholder: "https://example.com", active: true) { input, _ in
             await FaviconHash.run(input)
         })
@@ -378,7 +378,7 @@ public enum ToolCatalog {
             if let i = g.isp { s.add("ISP", i) }
             return ToolOutput(sections: [s])
         })
-        tools.append(ToolSpec("camera-auto", "Camera Auto-Discovery", "Find cameras on this Wi-Fi automatically — WS-Discovery + mDNS, then full recon", icon: "video.badge.waveform", .network,
+        tools.append(ToolSpec("camera-auto", "Camera Auto-Discovery", "Find cameras on this Wi-Fi automatically: WS-Discovery + mDNS, then full recon", icon: "video.badge.waveform", .network,
                               input: "Scan seconds (optional)", placeholder: "5", active: true, optional: true) { input, _ in
             await CameraDiscovery.run(input)
         })
@@ -443,13 +443,13 @@ public enum ToolCatalog {
 
     public static func tools(in category: ToolCategory) -> [ToolSpec] { all.filter { $0.category == category } }
 
-    /// A compact, auto-generated directory of every tool — fed into the AI Copilot's system
+    /// A compact, auto-generated directory of every tool, fed into the AI Assistant's system
     /// prompt so it knows exactly what it can call by id. Never goes stale since it's built
     /// from the live catalog, not maintained by hand.
     public static func directoryText() -> String {
         all.map { t in
             let hint = t.inputOptional ? "optional" : t.inputLabel
-            return "\(t.id): \(t.title) — \(t.subtitle) [input: \(hint)]"
+            return "\(t.id): \(t.title), \(t.subtitle) [input: \(hint)]"
         }.joined(separator: "\n")
     }
 
